@@ -1,0 +1,60 @@
+﻿{% extends "layout.html" %}
+
+{% block content %}
+<h3 class="fw-semibold mb-4">Process & Workflow Metrics</h3>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="section-title">Stage Distribution</h6>
+                <canvas id="pieChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <h6 class="section-title">Item Counts</h6>
+        <div class="row g-3" id="metricCards"></div>
+    </div>
+</div>
+
+<script>
+async function loadMetrics() {
+    const res = await fetch('/metrics');
+    const data = await res.json();
+
+    // Pie Chart
+    new Chart(document.getElementById('pieChart'), {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data.items_per_stage),
+            datasets: [{
+                data: Object.values(data.items_per_stage),
+                backgroundColor: ['#e3f2fd', '#e8f5e9', '#fff3e0', '#f3e5f5', '#e0f7fa'],
+                borderColor: ['#90caf9', '#a5d6a7', '#ffcc80', '#ce93d8', '#80deea'],
+                borderWidth: 1
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // Cards
+    let html = '';
+    for (const stage in data.items_per_stage) {
+        html += `
+            <div class="col-6">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body py-3">
+                        <h6 class="text-uppercase text-muted mb-1">${stage}</h6>
+                        <h2 class="fw-bold mb-0">${data.items_per_stage[stage]}</h2>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    document.getElementById('metricCards').innerHTML = html;
+}
+
+window.addEventListener('load', loadMetrics);
+</script>
+{% endblock %}
