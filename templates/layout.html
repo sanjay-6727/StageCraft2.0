@@ -1,136 +1,315 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en" data-bs-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stagecraft - SDLC Enforcement Tool</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        :root {
-            --req: #e3f2fd; --req-border: #90caf9; --req-badge: #1976d2;
-            --des: #e8f5e9; --des-border: #a5d6a7; --des-badge: #388e3c;
-            --imp: #fff3e0; --imp-border: #ffcc80; --imp-badge: #f57c00;
-            --test: #f3e5f5; --test-border: #ce93d8; --test-badge: #7b1fa2;
-            --rel: #e0f7fa; --rel-border: #80deea; --rel-badge: #0097a7;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SDLC Development Board - Modern Enterprise Workflow">
+
+  <title>SDLC Development Board</title>
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+  <!-- Google Fonts: Manrope -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Material Symbols -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Manrope', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            primary: { DEFAULT: '#0d6efd', 50: '#eff6ff', 100: '#dbeafe' }
+          },
+          borderRadius: { '4xl': '2rem' }
         }
-        [data-bs-theme="dark"] {
-            --req: #0d47a1; --req-border: #42a5f5; --req-badge: #64b5f6;
-            --des: #1b5e20; --des-border: #66bb6a; --des-badge: #81c784;
-            --imp: #ef6c00; --imp-border: #ffb74d; --imp-badge: #ffb74d;
-            --test: #4a148c; --test-border: #ab47bc; --test-badge: #ba68c8;
-            --rel: #006064; --rel-border: #26c6da; --rel-badge: #4dd0e1;
-        }
-        body { background: var(--bs-body-bg); transition: background 0.3s; font-family: system-ui, sans-serif; }
-        .stage-column { min-height: 500px; border-radius: 12px; padding: 1.5rem; animation: fadeInUp 0.5s ease; border: 1px solid var(--bs-border-color); }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        .card-hover:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 16px 32px rgba(0,0,0,0.1)!important; transition: all 0.25s ease; }
-        .card { border: none; border-radius: 10px; overflow: hidden; transition: all 0.2s; }
-        .card-body { padding: 1.5rem; }
-        .badge-stage { font-size: 0.75rem; padding: 0.4em 0.8em; }
-        .cursor-pointer { cursor: pointer; }
-        .section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bs-secondary-color); font-weight: 600; margin-bottom: 0.75rem; }
-        .empty-state { padding: 4rem 1rem; text-align: center; color: var(--bs-secondary-color); }
-        .empty-state i { font-size: 2.5rem; margin-bottom: 1rem; }
-        .timeline { display: flex; justify-content: space-between; margin: 1.5rem 0; position: relative; }
-        .timeline::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 4px; background: var(--bs-gray-300); z-index: 0; }
-        .timeline-step { position: relative; z-index: 1; text-align: center; flex: 1; font-size: 0.8rem; }
-        .timeline-step.completed .timeline-icon { background: var(--bs-success); color: white; }
-        .timeline-step.active .timeline-icon { background: var(--bs-primary); color: white; font-weight: bold; }
-        .timeline-step.future .timeline-icon { background: var(--bs-gray-200); color: var(--bs-secondary-color); }
-        .timeline-icon { display: block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; margin: 0 auto 0.5rem; }
-        .progress-bar { transition: width 0.4s ease; }
-    </style>
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.30);
+      --glass-shadow: 0 10px 40px rgba(31, 38, 135, 0.12);
+    }
+
+    [data-bs-theme="dark"] {
+      --glass-bg: rgba(30, 41, 59, 0.64);
+      --glass-border: rgba(255,255,255,0.10);
+      --glass-shadow: 0 10px 40px rgba(0,0,0,0.45);
+    }
+
+    body {
+      font-family: 'Manrope', system-ui, sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      min-height: 100vh;
+    }
+
+    [data-bs-theme="dark"] body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      border-radius: 1.5rem;
+    }
+
+    .sidebar {
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1030;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 3px;
+    }
+    [data-bs-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+  </style>
 </head>
-<body>
-<nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm">
-    <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold" href="/ui/board">🚀 Stagecraft</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
+
+<body class="d-flex flex-column min-vh-100">
+
+  <!-- Sidebar -->
+  <aside class="sidebar bg-white dark:bg-slate-900 border-end border-slate-200 dark:border-slate-800 position-fixed top-0 start-0 h-100 glass overflow-hidden"
+         id="sidebar"
+         style="width: 280px; transform: translateX(0);">
+    <div class="d-flex flex-column h-100">
+
+      <!-- Brand -->
+      <div class="p-4 border-bottom border-slate-200 dark:border-slate-800 d-flex align-items-center gap-3">
+        <div class="bg-primary text-white rounded d-flex align-items-center justify-content-center fs-4" style="width:48px; height:48px;">
+          <span class="material-symbols-outlined">developer_board</span>
+        </div>
+        <div>
+          <h4 class="fw-bold mb-0">SDLC Core</h4>
+          <small class="text-muted">Workflow Engine</small>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-grow-1 p-3 overflow-y-auto custom-scrollbar">
+        <ul class="nav flex-column gap-1">
+          <li><a href="#" class="nav-link d-flex align-items-center gap-3 px-3 py-2 active fw-medium"><span class="material-symbols-outlined">dashboard</span> Board</a></li>
+          <li><a href="#" class="nav-link d-flex align-items-center gap-3 px-3 py-2"><span class="material-symbols-outlined">analytics</span> Insights</a></li>
+          <li><a href="#" class="nav-link d-flex align-items-center gap-3 px-3 py-2"><span class="material-symbols-outlined">list_alt</span> Backlog</a></li>
+          <li><a href="#" class="nav-link d-flex align-items-center gap-3 px-3 py-2"><span class="material-symbols-outlined">people</span> Team</a></li>
+          <li><a href="#" class="nav-link d-flex align-items-center gap-3 px-3 py-2"><span class="material-symbols-outlined">settings</span> Settings</a></li>
+        </ul>
+
+        <hr class="my-4 border-slate-200 dark:border-slate-700">
+
+        <small class="px-3 text-uppercase fw-bold text-muted d-block mb-2">Active Projects</small>
+        <ul class="nav flex-column gap-1">
+          <li><a href="#" class="nav-link d-flex justify-content-between px-3 py-2"><span>Cloud Infra</span><span class="badge bg-primary-subtle text-primary">12</span></a></li>
+          <li><a href="#" class="nav-link d-flex justify-content-between px-3 py-2"><span>Mobile SDK</span><span class="badge bg-primary-subtle text-primary">8</span></a></li>
+        </ul>
+      </nav>
+
+      <!-- User -->
+      <div class="p-4 border-top border-slate-200 dark:border-slate-800">
+        <div class="d-flex align-items-center gap-3">
+          <img src="https://ui-avatars.com/api/?name=Sanjay&background=0d6efd&color=fff" alt="User" class="rounded-circle" width="48" height="48">
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-medium">Sanjay</div>
+            <small class="text-muted d-block text-truncate">Engineering Lead • Chennai</small>
+          </div>
+          <button class="btn btn-sm btn-icon"><span class="material-symbols-outlined">more_horiz</span></button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main wrapper -->
+  <div class="flex-grow-1" id="main-wrapper" style="margin-left: 280px; transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+
+    <!-- Header -->
+    <header class="navbar navbar-expand-lg glass border-bottom sticky-top z-2">
+      <div class="container-fluid px-4">
+
+        <!-- Mobile toggle -->
+        <button class="btn btn-icon d-lg-none me-2" id="mobileSidebarToggle">
+          <span class="material-symbols-outlined fs-2">menu</span>
         </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="/ui/board">Board</a></li>
-                <li class="nav-item"><a class="nav-link" href="/ui/metrics">Metrics</a></li>
-                <li class="nav-item"><button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button></li>
-            </ul>
+
+        <!-- Desktop toggle -->
+        <button class="btn btn-icon d-none d-lg-inline-flex me-2" id="desktopSidebarToggle">
+          <span class="material-symbols-outlined fs-2">menu_open</span>
+        </button>
+
+        <!-- Brand (mobile) -->
+        <a class="navbar-brand fw-bold d-lg-none" href="#">SDLC Board</a>
+
+        <!-- Right side -->
+        <div class="ms-auto d-flex align-items-center gap-3">
+
+          <div class="d-none d-md-block" style="width: 320px;">
+            <div class="input-group">
+              <span class="input-group-text bg-transparent border-end-0"><span class="material-symbols-outlined">search</span></span>
+              <input type="search" class="form-control border-start-0 rounded-pill rounded-start-0" placeholder="Search items, IDs...">
+            </div>
+          </div>
+
+          <div class="d-flex gap-1">
+            <button id="btnLight" class="btn btn-sm btn-outline-secondary theme-btn active d-flex align-items-center gap-1">
+              <span class="material-symbols-outlined">light_mode</span>
+            </button>
+            <button id="btnDark" class="btn btn-sm btn-outline-secondary theme-btn d-flex align-items-center gap-1">
+              <span class="material-symbols-outlined">dark_mode</span>
+            </button>
+          </div>
+
+          <button class="btn btn-primary rounded-pill d-flex align-items-center gap-2 shadow" data-bs-toggle="modal" data-bs-target="#createModal">
+            <span class="material-symbols-outlined">add</span> New Item
+          </button>
+
+          <button class="btn btn-icon position-relative">
+            <span class="material-symbols-outlined">notifications</span>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">3</span>
+          </button>
         </div>
-    </div>
-</nav>
+      </div>
+    </header>
 
-<main class="container-fluid px-4 py-4">
-    {% block content %}{% endblock %}
-</main>
+    <!-- Content -->
+    <main class="flex-grow-1 py-4 px-3 px-lg-4">
+      {% block content %}{% endblock %}
+    </main>
 
-<!-- Item Detail Modal -->
-<div class="modal fade" id="itemModal" tabindex="-1" aria-labelledby="itemModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow">
-            <div class="modal-header" id="modalHeader">
-                <h5 class="modal-title" id="itemModalLabel">Work Item Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="modalContent">
-                Loading...
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
+  </div>
 
-<!-- Create Work Item Modal -->
-<div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createModalLabel">Create New Work Item</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="createForm">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="title" required placeholder="Enter title...">
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" rows="3" placeholder="Optional description..."></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Create</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-<!-- Toast Container -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 1055">
-    <div id="toast" class="toast align-items-center text-bg-primary border-0" role="alert">
-        <div class="d-flex">
-            <div class="toast-body" id="toastBody"></div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    </div>
-</div>
+  <!-- Sidebar logic -->
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const mainWrapper = document.getElementById('main-wrapper');
+    const mobileToggle = document.getElementById('mobileSidebarToggle');
+    const desktopToggle = document.getElementById('desktopSidebarToggle');
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const toggle = document.getElementById('themeToggle');
-toggle.addEventListener('click', () => {
-    document.documentElement.dataset.bsTheme = document.documentElement.dataset.bsTheme === 'dark' ? 'light' : 'dark';
-    toggle.innerHTML = document.documentElement.dataset.bsTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-});
+    const SIDEBAR_WIDTH = 280;
 
-function showToast(message, type = "primary") {
-    const toastEl = document.getElementById("toast");
-    const toastBody = document.getElementById("toastBody");
-    toastEl.className = `toast align-items-center text-bg-${type} border-0`;
-    toastBody.innerText = message;
-    new bootstrap.Toast(toastEl, { delay: 4000 }).show();
-}
-</script>
+    function isDesktop() {
+      return window.innerWidth >= 992;
+    }
+
+    function collapseSidebar() {
+      sidebar.style.transform = 'translateX(-100%)';
+      mainWrapper.style.marginLeft = '0';
+      localStorage.setItem('sidebarCollapsed', 'true');
+
+      // Update icon (both toggles)
+      const icon = 'menu';
+      if (mobileToggle) mobileToggle.querySelector('span').textContent = icon;
+      if (desktopToggle) desktopToggle.querySelector('span').textContent = icon;
+    }
+
+    function expandSidebar() {
+      sidebar.style.transform = 'translateX(0)';
+      mainWrapper.style.marginLeft = isDesktop() ? `${SIDEBAR_WIDTH}px` : '0';
+      localStorage.setItem('sidebarCollapsed', 'false');
+
+      // Update icon
+      const icon = 'menu_open';
+      if (mobileToggle) mobileToggle.querySelector('span').textContent = icon;
+      if (desktopToggle) desktopToggle.querySelector('span').textContent = icon;
+    }
+
+    function toggleSidebar() {
+      const currentlyCollapsed = sidebar.style.transform === 'translateX(-100%)';
+      currentlyCollapsed ? expandSidebar() : collapseSidebar();
+    }
+
+    function updateLayout() {
+      const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+      if (isDesktop()) {
+        if (collapsed) {
+          collapseSidebar();
+        } else {
+          expandSidebar();
+        }
+      } else {
+        // Mobile → always collapsed by default (slide-in only on toggle)
+        collapseSidebar();
+      }
+    }
+
+    // Init + resize
+    window.addEventListener('load', updateLayout);
+    window.addEventListener('resize', updateLayout);
+
+    // Toggle listeners
+    mobileToggle?.addEventListener('click', toggleSidebar);
+    desktopToggle?.addEventListener('click', toggleSidebar);
+
+    // Outside click → close (mobile only)
+    document.addEventListener('click', e => {
+      if (isDesktop()) return;
+
+      const clickedInside = sidebar.contains(e.target);
+      const clickedAnyToggle =
+        mobileToggle?.contains(e.target) ||
+        desktopToggle?.contains(e.target);
+
+      if (!clickedInside && !clickedAnyToggle) {
+        collapseSidebar();
+      }
+    });
+
+    // ESC → close
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        collapseSidebar();
+      }
+    });
+  </script>
+
+  <!-- Theme switching -->
+  <script>
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      localStorage.setItem('theme', theme);
+      document.getElementById('btnLight')?.classList.toggle('active', theme === 'light');
+      document.getElementById('btnDark')?.classList.toggle('active', theme === 'dark');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(saved || (prefersDark ? 'dark' : 'light'));
+
+      document.getElementById('btnLight')?.addEventListener('click', () => setTheme('light'));
+      document.getElementById('btnDark')?.addEventListener('click', () => setTheme('dark'));
+    });
+  </script>
+
 </body>
 </html>

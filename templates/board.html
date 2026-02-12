@@ -1,215 +1,287 @@
 ﻿{% extends "layout.html" %}
 {% block content %}
 
+<!-- Tailwind + Fonts + Material Symbols -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
 <style>
-/* ────────────────────────────────────────────────
-   3D Glassmorphic Kanban Card - Stage Colored
-───────────────────────────────────────────────── */
+    body {
+        font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    }
 
-.parent {
-    width: 100%;
-    height: 320px;
-    perspective: 1200px;
-    margin-bottom: 1.5rem;
-}
+    .glass {
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.10);
+    }
 
-.card {
-    height: 100%;
-    border-radius: 40px;
-    transition: all 0.6s ease-in-out;
-    transform-style: preserve-3d;
-    box-shadow:
-        rgba(30, 30, 60, 0) 40px 50px 25px -40px,
-        rgba(30, 30, 60, 0.2) 0px 25px 25px -5px;
-    cursor: pointer;
-    overflow: hidden;
-    position: relative;
-}
+    [data-bs-theme="dark"] .glass {
+        background: rgba(30, 41, 59, 0.58);
+        border-color: rgba(255,255,255,0.09);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.40);
+    }
 
-.glass {
-    transform-style: preserve-3d;
-    position: absolute;
-    inset: 10px;
-    border-radius: 45px;
-    border-top-left-radius: 100%;
-    background: linear-gradient(
-        0deg,
-        rgba(255, 255, 255, 0.15) 0%,
-        rgba(255, 255, 255, 0.65) 100%
-    );
-    transform: translate3d(0px, 0px, 30px);
-    border-right: 1px solid rgba(255, 255, 255, 0.4);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-    transition: all 0.6s ease-in-out;
-    pointer-events: none;
-}
+    [data-bs-theme="dark"] .text-dark {
+        color: white !important;
+    }
 
-.content {
-    padding: 80px 35px 100px 35px;
-    transform: translate3d(0, 0, 36px);
-    position: relative;
-    z-index: 2;
-}
+    [data-bs-theme="dark"] .text-muted {
+        color: #9ca3af !important;
+    }
 
-.content .title {
-    display: block;
-    color: #1e1b4b;
-    font-weight: 800;
-    font-size: 1.35rem;
-    line-height: 1.3;
-    margin-bottom: 0.75rem;
-}
+    .theme-btn {
+        transition: all 0.25s ease;
+    }
 
-.content .text {
-    display: block;
-    color: rgba(30, 27, 75, 0.88);
-    font-size: 0.95rem;
-    line-height: 1.45;
-    opacity: 0.92;
-}
+    .theme-btn.active {
+        background-color: #0d6efd;
+        color: white !important;
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
 
-.stage-label {
-    position: absolute;
-    top: 20px;
-    right: 24px;
-    background: rgba(255,255,255,0.28);
-    backdrop-filter: blur(6px);
-    color: white;
-    font-size: 0.82rem;
-    font-weight: 600;
-    padding: 0.4rem 1rem;
-    border-radius: 999px;
-    z-index: 3;
-    transform: translate3d(0,0,50px);
-}
+    .theme-btn:hover:not(.active) {
+        background-color: rgba(13, 110, 253, 0.08);
+    }
 
-/* Hover tilt effect */
-.parent:hover .card {
-    transform: rotate3d(1, -1, 0, 22deg);
-    box-shadow:
-        rgba(30, 30, 60, 0.38) 30px 50px 25px -35px,
-        rgba(30, 30, 60, 0.20) 0px 30px 35px 0px;
-}
+    .kanban-column {
+        min-width: 320px;
+        width: 320px;
+        min-height: calc(100vh - 280px);
+    }
 
-.parent:hover .card .glass {
-    transform: translate3d(0px, 0px, 45px);
-}
+    .glow-bg {
+        position: absolute;
+        inset: 0;
+        border-radius: 1.5rem;
+        filter: blur(48px);
+        opacity: 0.16;
+        z-index: -1;
+    }
 
-/* Mobile adjustment */
-@media (max-width: 768px) {
-    .parent { height: 280px; }
-    .content { padding: 70px 28px 90px 28px; }
-    .content .title { font-size: 1.22rem; }
-    .content .text  { font-size: 0.92rem; }
-}
+    .stage-pill {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 600;
+    }
 
-/* ────────────────────────────────────────────────
-   Stage-specific gradient backgrounds
-───────────────────────────────────────────────── */
-.stage-Requirement  .card { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
-.stage-Design       .card { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); }
-.stage-Implementation .card { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); }
-.stage-Testing      .card { background: linear-gradient(135deg, #ef4444 0%, #f87171 100%); }
-.stage-Release      .card { background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); }
+    .custom-scrollbar::-webkit-scrollbar {
+        height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+    [data-bs-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #475569;
+    }
 
-/* Darker text for better contrast on brighter stages */
-.stage-Design       .content .title,
-.stage-Design       .content .text,
-.stage-Implementation .content .title,
-.stage-Implementation .content .text {
-    color: #1e293b;
-}
+    .wip-limit-exceeded {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+    }
+
+    .kanban-card {
+        transition: all 0.2s ease;
+    }
+    .kanban-card[draggable="true"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+    }
+    .drag-over {
+        background: rgba(59, 130, 246, 0.15) !important;
+        border: 2px dashed #3b82f6 !important;
+    }
 </style>
 
-<!-- Quick Metrics Dashboard -->
-<div class="row g-3 mb-5" id="quickMetrics"></div>
+<div class="container-fluid px-4 py-5">
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-semibold mb-0">SDLC Development Board</h3>
-    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createModal">
-        <i class="fas fa-plus me-1"></i> New Work Item
-    </button>
-</div>
+    <!-- Header + Theme Controls + Search -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold mb-1">SDLC Development Board</h3>
+            <div class="text-muted small">Enforced workflow • {{ STAGES|length }} stages</div>
+        </div>
 
-<div class="position-relative">
-    <div class="row g-3" id="board"></div>
-    <div id="loading" class="position-absolute top-50 start-50 translate-middle d-none">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="search" id="boardSearch" class="form-control rounded-pill px-4" placeholder="Search items..." style="min-width: 240px;">
+
+            <button id="btnLight" class="btn btn-outline-secondary theme-btn px-4 d-flex align-items-center gap-2 active">
+                <span class="material-symbols-outlined">light_mode</span>
+                Light
+            </button>
+
+            <button id="btnDark" class="btn btn-outline-secondary theme-btn px-4 d-flex align-items-center gap-2">
+                <span class="material-symbols-outlined">dark_mode</span>
+                Dark
+            </button>
+
+            <button class="btn btn-primary rounded-pill px-4 shadow d-flex align-items-center gap-2 ms-2"
+                    data-bs-toggle="modal" data-bs-target="#createModal">
+                <span class="material-symbols-outlined">add</span>
+                New Work Item
+            </button>
         </div>
     </div>
+
+    <!-- Quick Metrics Dashboard -->
+    <div class="row g-3 mb-5" id="quickMetrics"></div>
+
+    <!-- Kanban Board -->
+    <div class="position-relative">
+        <div class="d-flex flex-nowrap gap-4 overflow-x-auto pb-5 custom-scrollbar" id="board"></div>
+
+        <div id="loading" class="position-absolute top-50 start-50 translate-middle d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Create Modal (unchanged) -->
+<!-- MODALS -->
+
 <div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createModalLabel">Create New Work Item</h5>
+        <div class="modal-content glass shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="createModalLabel">Create New Work Item</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="createForm">
                     <div class="mb-3">
-                        <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+                        <label for="title" class="form-label fw-medium">Title <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="title" required placeholder="Enter title...">
                     </div>
                     <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" rows="3" placeholder="Optional description..."></textarea>
+                        <label for="priority" class="form-label fw-medium">Priority</label>
+                        <select class="form-select" id="priority">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Critical">Critical</option>
+                        </select>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Create</button>
+                    <div class="mb-3">
+                        <label for="description" class="form-label fw-medium">Description</label>
+                        <textarea class="form-control" id="description" rows="4" placeholder="Optional description..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">Create Item</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Item Detail Modal (unchanged) -->
 <div class="modal fade" id="itemModal" tabindex="-1" aria-labelledby="itemModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow">
-            <div class="modal-header" id="modalHeader">
-                <h5 class="modal-title" id="itemModalLabel">Work Item Details</h5>
+        <div class="modal-content glass shadow-xl">
+            <div class="modal-header border-0" id="modalHeader">
+                <h5 class="modal-title fw-bold" id="itemModalLabel">Work Item Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body" id="modalContent">Loading...</div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-body" id="modalContent">
+                Loading...
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Regression Modal (unchanged) -->
 <div class="modal fade" id="regressionModal" tabindex="-1" aria-labelledby="regressionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="regressionModalLabel">Regress Stage</h5>
+        <div class="modal-content glass shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="regressionModalLabel">Regress to Previous Stage</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Please provide a reason for moving this item back one stage.</p>
+                <p class="text-muted mb-4">Please explain why this item needs to move backward.</p>
                 <form id="regressionForm">
                     <div class="mb-3">
-                        <label for="regressionReason" class="form-label">Reason <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="regressionReason" rows="3" required placeholder="e.g., Found critical bug during testing..."></textarea>
+                        <label for="regressionReason" class="form-label fw-medium">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="regressionReason" rows="4" required placeholder="e.g., Critical defect discovered during testing..."></textarea>
                     </div>
-                    <button type="submit" class="btn btn-warning w-100">Confirm Regression</button>
+                    <button type="submit" class="btn btn-warning w-100 rounded-pill py-2 fw-bold">Confirm Regression</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
 <script>
 // ────────────────────────────────────────────────
-//  Main board logic with stage-colored 3D cards
+// THEME SWITCHING
+// ────────────────────────────────────────────────
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    localStorage.setItem('theme', theme);
+    document.getElementById('btnLight').classList.toggle('active', theme === 'light');
+    document.getElementById('btnDark').classList.toggle('active', theme === 'dark');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(saved || (prefersDark ? 'dark' : 'light'));
+
+    document.getElementById('btnLight').addEventListener('click', () => setTheme('light'));
+    document.getElementById('btnDark').addEventListener('click', () => setTheme('dark'));
+});
+
+// ────────────────────────────────────────────────
+// BOARD DATA & CONFIG
 // ────────────────────────────────────────────────
 
 const STAGES = ["Requirement", "Design", "Implementation", "Testing", "Release"];
-let currentItemIdForRegression = null;
+
+const stageColors = {
+    "Requirement":    { light: "#c4b5fd", dark: "#7c3aed", glow: "#a78bfa" },
+    "Design":         { light: "#6ee7b7", dark: "#10b981", glow: "#34d399" },
+    "Implementation": { light: "#fcd34d", dark: "#d97706", glow: "#fbbf24" },
+    "Testing":        { light: "#fca5a5", dark: "#ef4444", glow: "#f87171" },
+    "Release":        { light: "#93c5fd", dark: "#3b82f6", glow: "#60a5fa" }
+};
+
+const wipLimits = {
+    "Requirement": 8,
+    "Design": 5,
+    "Implementation": 6,
+    "Testing": 7,
+    "Release": 3
+};
+
+const priorityColors = {
+    "Low":      "bg-secondary text-white",
+    "Medium":   "bg-info text-white",
+    "High":     "bg-warning text-dark",
+    "Critical": "bg-danger text-white"
+};
+
+function getStageColorClass(stage) {
+    const map = { "Requirement": "info", "Design": "success", "Implementation": "warning", "Testing": "danger", "Release": "primary" };
+    return map[stage] || "secondary";
+}
+
+// ────────────────────────────────────────────────
+// BOARD LOADING
+// ────────────────────────────────────────────────
 
 async function loadBoard() {
     const loading = document.getElementById('loading');
@@ -218,7 +290,7 @@ async function loadBoard() {
 
     loading.classList.remove('d-none');
     board.innerHTML = '';
-    quickMetrics.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div></div>';
+    quickMetrics.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
     try {
         const boardRes = await fetch('/board');
@@ -229,89 +301,244 @@ async function loadBoard() {
         if (!metricsRes.ok) throw new Error('Failed to load metrics');
         const metricsData = await metricsRes.json();
 
-        // Quick metrics (unchanged)
+        // Metrics
         let metricsHtml = '';
-        for (const stage in metricsData.items_per_stage) {
-            const count = metricsData.items_per_stage[stage];
+        Object.entries(metricsData.items_per_stage).forEach(([stage, count], i) => {
+            const colors = ["purple", "emerald", "amber", "rose", "blue"];
+            const icons  = ["assignment", "brush", "code", "bug_report", "rocket_launch"];
             metricsHtml += `
-                <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-                    <div class="card shadow-sm text-center h-100 border-0">
-                        <div class="card-body py-3 px-2">
-                            <h6 class="text-uppercase text-muted mb-1 small fw-semibold">${stage}</h6>
-                            <h4 class="fw-bold mb-0">${count}</h4>
+                <div class="col-6 col-md-4 col-lg-3 col-xl">
+                    <div class="glass rounded-3xl p-4 shadow-sm border-l-4 border-l-${colors[i]}-500">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-xs fw-bold text-uppercase text-muted mb-1">${stage}</div>
+                                <div class="fs-3 fw-extrabold text-dark">${count}</div>
+                            </div>
+                            <span class="material-symbols-outlined text-${colors[i]}-600 fs-3">
+                                ${icons[i]}
+                            </span>
                         </div>
                     </div>
                 </div>
             `;
-        }
+        });
         quickMetrics.innerHTML = metricsHtml;
 
-        // Kanban columns
-        Object.keys(boardData).forEach(stage => {
-            const items = boardData[stage];
+        // Board columns
+        board.innerHTML = '';
+        STAGES.forEach(stage => {
+            const items = boardData[stage] || [];
+            const color = stageColors[stage] || {light:"#e2e8f0", dark:"#475569", glow:"#94a3b8"};
+            const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const limit = wipLimits[stage] || null;
+            const exceeded = limit && items.length > limit;
+
+            let cardsHtml = items.length === 0 ? `
+                <div class="text-center py-10 text-muted">
+                    <span class="material-symbols-outlined fs-1 opacity-50">inbox</span>
+                    <p class="mt-3 small">No items yet</p>
+                </div>
+            ` : items.map(item => `
+                <div class="glass rounded-2xl p-4 mb-3 shadow hover:shadow-xl transition-all duration-200 cursor-pointer group kanban-card"
+                     data-id="${item.id}"
+                     draggable="true"
+                     onclick="openItem(${item.id})">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="stage-pill bg-${getStageColorClass(stage)}/10 text-${getStageColorClass(stage)}">
+                            ${stage}
+                        </span>
+                        <span class="material-symbols-outlined text-muted opacity-60 group-hover:opacity-100">more_horiz</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge ${priorityColors[item.priority || 'Medium']} me-2">${item.priority || 'Medium'}</span>
+                    </div>
+                    <h5 class="fw-bold mb-2 line-clamp-2 text-dark">${item.title}</h5>
+                    <p class="small text-muted mb-0 line-clamp-3">${item.description_snippet || 'No description provided'}</p>
+                </div>
+            `).join('');
+
             const col = document.createElement('div');
-            col.className = 'col-12 col-md-6 col-lg';
-
-            let cardsHtml = '';
-            if (items.length === 0) {
-                cardsHtml = `
-                    <div class="empty-state py-5 text-center">
-                        <i class="fas fa-inbox text-muted fa-3x mb-3"></i>
-                        <h6 class="text-muted mb-2">No items in ${stage}</h6>
-                        <small class="text-muted">Create a new work item to start the SDLC process.</small>
-                    </div>
-                `;
-            } else {
-                cardsHtml = items.map(item => `
-                    <div class="parent" onclick="openItem(${item.id})">
-                        <div class="card">
-                            <div class="stage-label">${stage}</div>
-                            <div class="glass"></div>
-                            <div class="content">
-                                <span class="title">${item.title}</span>
-                                <span class="text">
-                                    ${item.description_snippet 
-                                        ? item.description_snippet.substring(0, 110) + (item.description_snippet.length > 110 ? '...' : '')
-                                        : 'No description provided'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
+            col.className = 'kanban-column flex-shrink-0';
             col.innerHTML = `
-                <div class="stage-column stage-${stage}">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h5 class="mb-0 fw-semibold">${stage}</h5>
-                        <span class="badge rounded-pill bg-dark text-white">${items.length}</span>
+                <div class="position-relative glass rounded-3xl p-4 border border-slate-200/60 shadow-sm h-100 ${exceeded ? 'wip-limit-exceeded' : ''}">
+                    <div class="glow-bg bg-[${color.glow}]"></div>
+                    <div class="d-flex align-items-center justify-content-between mb-4 ${exceeded ? 'text-danger' : ''}">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="w-3 h-3 rounded-circle bg-[${isDark ? color.dark : color.light}]"></span>
+                            <h5 class="fw-bold mb-0 text-dark">${stage}</h5>
+                            ${limit ? `<small class="text-muted ms-2">WIP: ${items.length}/${limit}</small>` : ''}
+                        </div>
+                        <span class="badge ${exceeded ? 'bg-danger' : 'bg-dark'} text-white rounded-pill px-3 py-1 fw-medium">
+                            ${items.length}
+                        </span>
                     </div>
-                    ${cardsHtml}
+                    <div class="drop-zone overflow-y-auto custom-scrollbar" style="min-height: 200px; max-height: calc(100vh - 280px);">
+                        ${cardsHtml}
+                    </div>
                 </div>
             `;
-
             board.appendChild(col);
         });
+
+        initDragAndDrop();
+        initSearch();
+
     } catch (err) {
         quickMetrics.innerHTML = '';
-        board.innerHTML = `<div class="alert alert-danger">Could not load data: ${err.message}</div>`;
+        board.innerHTML = `<div class="alert alert-danger w-100 text-center p-5">Could not load data: ${err.message}</div>`;
     } finally {
         loading.classList.add('d-none');
     }
 }
 
 // ────────────────────────────────────────────────
-//  The rest of your script remains unchanged
+// DRAG & DROP
 // ────────────────────────────────────────────────
 
-async function openItem(id) { /* ... your existing code ... */ }
-async function moveForward(id, currentStage) { /* ... */ }
-function showRegressionModal(id) { /* ... */ }
+let draggedCard = null;
 
-document.getElementById('regressionForm').addEventListener('submit', async e => { /* ... */ });
-document.getElementById('createForm').addEventListener('submit', async e => { /* ... */ });
+function initDragAndDrop() {
+    document.querySelectorAll('.kanban-card').forEach(card => {
+        card.addEventListener('dragstart', e => {
+            draggedCard = card;
+            setTimeout(() => card.style.opacity = '0.5', 0);
+            e.dataTransfer.effectAllowed = 'move';
+        });
 
-window.addEventListener('load', loadBoard);
+        card.addEventListener('dragend', () => {
+            setTimeout(() => {
+                if (draggedCard) draggedCard.style.opacity = '1';
+                draggedCard = null;
+            }, 100);
+            document.querySelectorAll('.drop-zone').forEach(zone => zone.classList.remove('drag-over'));
+        });
+    });
+
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+        zone.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            zone.classList.add('drag-over');
+        });
+
+        zone.addEventListener('dragleave', () => {
+            zone.classList.remove('drag-over');
+        });
+
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+
+            if (!draggedCard) return;
+
+            const newColumn = zone.closest('.kanban-column');
+            const newStageEl = newColumn.querySelector('h5.fw-bold');
+            const newStage = newStageEl?.textContent.trim();
+
+            if (!newStage || !STAGES.includes(newStage)) return;
+
+            const itemId = draggedCard.dataset.id;
+            if (!itemId) return;
+
+            // Optimistic UI update
+            zone.appendChild(draggedCard);
+
+            // TODO: call backend
+            // fetch(`/workitems/${itemId}/move`, {
+            //     method: 'PATCH',
+            //     headers: {'Content-Type': 'application/json'},
+            //     body: JSON.stringify({ new_stage: newStage })
+            // }).catch(err => {
+            //     console.error(err);
+            //     alert('Move failed');
+            //     loadBoard(); // rollback
+            // });
+
+            updateColumnCounts();
+        });
+    });
+}
+
+function updateColumnCounts() {
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        const badge = col.querySelector('.badge.rounded-pill');
+        const count = col.querySelectorAll('.kanban-card').length;
+        if (badge) badge.textContent = count;
+
+        const wipText = col.querySelector('small.text-muted');
+        if (wipText) {
+            const limit = parseInt(wipText.textContent.match(/\/(\d+)/)?.[1] || 0);
+            wipText.closest('.d-flex').classList.toggle('text-danger', count > limit);
+            col.querySelector('.position-relative').classList.toggle('wip-limit-exceeded', count > limit);
+            badge?.classList.toggle('bg-danger', count > limit);
+            badge?.classList.toggle('bg-dark', count <= limit);
+        }
+    });
+}
+
+// ────────────────────────────────────────────────
+// SEARCH / FILTER
+// ────────────────────────────────────────────────
+
+function initSearch() {
+    const searchInput = document.getElementById('boardSearch');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', e => {
+        const term = e.target.value.toLowerCase().trim();
+        document.querySelectorAll('.kanban-card').forEach(card => {
+            const title = card.querySelector('h5')?.textContent.toLowerCase() || '';
+            const desc  = card.querySelector('p.small')?.textContent.toLowerCase() || '';
+            card.style.display = (title.includes(term) || desc.includes(term)) ? '' : 'none';
+        });
+    });
+}
+
+// ────────────────────────────────────────────────
+// MODAL & FORM HANDLERS (placeholders)
+// ────────────────────────────────────────────────
+
+async function openItem(id) {
+    console.log(`Opening item ${id}`);
+    const modal = new bootstrap.Modal(document.getElementById('itemModal'));
+    modal.show();
+    // TODO: fetch(`/workitems/${id}`) and populate modalContent
+}
+
+document.getElementById('createForm')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const title = document.getElementById('title').value.trim();
+    const priority = document.getElementById('priority').value;
+    const desc = document.getElementById('description').value.trim();
+
+    if (!title) return;
+
+    // TODO: POST to backend
+    // fetch('/workitems', {
+    //     method: 'POST',
+    //     headers: {'Content-Type': 'application/json'},
+    //     body: JSON.stringify({ title, priority, description: desc })
+    // }).then(() => {
+    //     bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+    //     loadBoard();
+    // });
+
+    alert(`Creating: ${title} (${priority})`);
+    bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+    loadBoard(); // simulate refresh
+});
+
+document.getElementById('regressionForm')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const reason = document.getElementById('regressionReason').value.trim();
+    if (reason) {
+        alert(`Regression confirmed. Reason: ${reason}`);
+        bootstrap.Modal.getInstance(document.getElementById('regressionModal')).hide();
+    }
+});
+
+// Initial load
+document.addEventListener('DOMContentLoaded', loadBoard);
 </script>
 
 {% endblock %}
