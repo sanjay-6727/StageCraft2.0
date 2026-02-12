@@ -108,7 +108,7 @@
           <span class="material-symbols-outlined">developer_board</span>
         </div>
         <div>
-          <h4 class="fw-bold mb-0">SDLC Core</h4>
+          <h4 class="fw-bold mb-0">StageCraft</h4>
           <small class="text-muted">Workflow Engine</small>
         </div>
       </div>
@@ -163,12 +163,13 @@
           <span class="material-symbols-outlined fs-2">menu_open</span>
         </button>
 
-        <!-- Brand (mobile) -->
+        <!-- Brand (mobile only) -->
         <a class="navbar-brand fw-bold d-lg-none" href="#">SDLC Board</a>
 
-        <!-- Right side -->
+        <!-- Right side controls -->
         <div class="ms-auto d-flex align-items-center gap-3">
 
+          <!-- Search -->
           <div class="d-none d-md-block" style="width: 320px;">
             <div class="input-group">
               <span class="input-group-text bg-transparent border-end-0"><span class="material-symbols-outlined">search</span></span>
@@ -176,6 +177,7 @@
             </div>
           </div>
 
+          <!-- Theme buttons -->
           <div class="d-flex gap-1">
             <button id="btnLight" class="btn btn-sm btn-outline-secondary theme-btn active d-flex align-items-center gap-1">
               <span class="material-symbols-outlined">light_mode</span>
@@ -185,10 +187,12 @@
             </button>
           </div>
 
+          <!-- New Item -->
           <button class="btn btn-primary rounded-pill d-flex align-items-center gap-2 shadow" data-bs-toggle="modal" data-bs-target="#createModal">
             <span class="material-symbols-outlined">add</span> New Item
           </button>
 
+          <!-- Notifications -->
           <button class="btn btn-icon position-relative">
             <span class="material-symbols-outlined">notifications</span>
             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">3</span>
@@ -197,7 +201,7 @@
       </div>
     </header>
 
-    <!-- Content -->
+    <!-- Page Content -->
     <main class="flex-grow-1 py-4 px-3 px-lg-4">
       {% block content %}{% endblock %}
     </main>
@@ -225,7 +229,6 @@
       mainWrapper.style.marginLeft = '0';
       localStorage.setItem('sidebarCollapsed', 'true');
 
-      // Update icon (both toggles)
       const icon = 'menu';
       if (mobileToggle) mobileToggle.querySelector('span').textContent = icon;
       if (desktopToggle) desktopToggle.querySelector('span').textContent = icon;
@@ -236,55 +239,45 @@
       mainWrapper.style.marginLeft = isDesktop() ? `${SIDEBAR_WIDTH}px` : '0';
       localStorage.setItem('sidebarCollapsed', 'false');
 
-      // Update icon
       const icon = 'menu_open';
       if (mobileToggle) mobileToggle.querySelector('span').textContent = icon;
       if (desktopToggle) desktopToggle.querySelector('span').textContent = icon;
     }
 
     function toggleSidebar() {
-      const currentlyCollapsed = sidebar.style.transform === 'translateX(-100%)';
-      currentlyCollapsed ? expandSidebar() : collapseSidebar();
+      const isCollapsed = sidebar.style.transform === 'translateX(-100%)';
+      isCollapsed ? expandSidebar() : collapseSidebar();
     }
 
     function updateLayout() {
       const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
 
       if (isDesktop()) {
-        if (collapsed) {
-          collapseSidebar();
-        } else {
-          expandSidebar();
-        }
+        collapsed ? collapseSidebar() : expandSidebar();
       } else {
-        // Mobile → always collapsed by default (slide-in only on toggle)
-        collapseSidebar();
+        collapseSidebar(); // Mobile always starts collapsed
       }
     }
 
-    // Init + resize
     window.addEventListener('load', updateLayout);
     window.addEventListener('resize', updateLayout);
 
-    // Toggle listeners
     mobileToggle?.addEventListener('click', toggleSidebar);
     desktopToggle?.addEventListener('click', toggleSidebar);
 
-    // Outside click → close (mobile only)
     document.addEventListener('click', e => {
       if (isDesktop()) return;
 
       const clickedInside = sidebar.contains(e.target);
-      const clickedAnyToggle =
+      const clickedToggle =
         mobileToggle?.contains(e.target) ||
         desktopToggle?.contains(e.target);
 
-      if (!clickedInside && !clickedAnyToggle) {
+      if (!clickedInside && !clickedToggle) {
         collapseSidebar();
       }
     });
 
-    // ESC → close
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         collapseSidebar();
@@ -292,22 +285,46 @@
     });
   </script>
 
-  <!-- Theme switching -->
+  <!-- Fixed & robust theme switching -->
   <script>
     function setTheme(theme) {
       document.documentElement.setAttribute('data-bs-theme', theme);
       localStorage.setItem('theme', theme);
-      document.getElementById('btnLight')?.classList.toggle('active', theme === 'light');
-      document.getElementById('btnDark')?.classList.toggle('active', theme === 'dark');
+
+      const btnLight = document.getElementById('btnLight');
+      const btnDark = document.getElementById('btnDark');
+
+      if (btnLight) {
+        btnLight.classList.toggle('active', theme === 'light');
+      }
+      if (btnDark) {
+        btnDark.classList.toggle('active', theme === 'dark');
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const saved = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(saved || (prefersDark ? 'dark' : 'light'));
+      const initial = saved || (prefersDark ? 'dark' : 'light');
 
-      document.getElementById('btnLight')?.addEventListener('click', () => setTheme('light'));
-      document.getElementById('btnDark')?.addEventListener('click', () => setTheme('dark'));
+      setTheme(initial);
+
+      const btnLight = document.getElementById('btnLight');
+      const btnDark = document.getElementById('btnDark');
+
+      if (btnLight) {
+        btnLight.addEventListener('click', () => setTheme('light'));
+      }
+      if (btnDark) {
+        btnDark.addEventListener('click', () => setTheme('dark'));
+      }
+
+      // Optional: follow system changes if no manual preference
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (!localStorage.getItem('theme')) {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      });
     });
   </script>
 

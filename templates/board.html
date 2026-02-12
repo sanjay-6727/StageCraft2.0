@@ -1,6 +1,9 @@
 ﻿{% extends "layout.html" %}
 {% block content %}
 
+<!-- Chart.js for pie chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <!-- Tailwind + Fonts + Material Symbols -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -104,36 +107,38 @@
 
 <div class="container-fluid px-4 py-5">
 
-    <!-- Header + Theme Controls + Search -->
+    <!-- Header + Search -->
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
             <h3 class="fw-bold mb-1">SDLC Development Board</h3>
             <div class="text-muted small">Enforced workflow • {{ STAGES|length }} stages</div>
         </div>
 
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <input type="search" id="boardSearch" class="form-control rounded-pill px-4" placeholder="Search items..." style="min-width: 240px;">
-
-            <button id="btnLight" class="btn btn-outline-secondary theme-btn px-4 d-flex align-items-center gap-2 active">
-                <span class="material-symbols-outlined">light_mode</span>
-                Light
-            </button>
-
-            <button id="btnDark" class="btn btn-outline-secondary theme-btn px-4 d-flex align-items-center gap-2">
-                <span class="material-symbols-outlined">dark_mode</span>
-                Dark
-            </button>
-
-            <button class="btn btn-primary rounded-pill px-4 shadow d-flex align-items-center gap-2 ms-2"
-                    data-bs-toggle="modal" data-bs-target="#createModal">
-                <span class="material-symbols-outlined">add</span>
-                New Work Item
-            </button>
-        </div>
+        
     </div>
 
-    <!-- Quick Metrics Dashboard -->
-    <div class="row g-3 mb-5" id="quickMetrics"></div>
+    <!-- Enhanced Metrics Dashboard -->
+    <section class="mb-5">
+        <h4 class="fw-bold mb-4 text-dark">Workflow Metrics Overview</h4>
+        <div class="row g-4">
+
+            <!-- Pie Chart -->
+            <div class="col-12 col-lg-6">
+                <div class="glass rounded-4 p-4 shadow-sm h-100">
+                    <h6 class="fw-semibold mb-3 text-dark">Items by Stage</h6>
+                    <div style="height: 260px;">
+                    <canvas id="stagePieChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Icon cards + compact counts -->
+            <div class="col-12 col-lg-6">
+                <div class="row g-3" id="quickMetrics"></div>
+                <div class="row g-3 mt-3" id="stageCountCards"></div>
+            </div>
+
+        </div>
+    </section>
 
     <!-- Kanban Board -->
     <div class="position-relative">
@@ -148,8 +153,7 @@
 
 </div>
 
-<!-- MODALS -->
-
+<!-- MODALS (unchanged) -->
 <div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass shadow-lg">
@@ -226,26 +230,6 @@
 
 <script>
 // ────────────────────────────────────────────────
-// THEME SWITCHING
-// ────────────────────────────────────────────────
-
-function setTheme(theme) {
-    document.documentElement.setAttribute('data-bs-theme', theme);
-    localStorage.setItem('theme', theme);
-    document.getElementById('btnLight').classList.toggle('active', theme === 'light');
-    document.getElementById('btnDark').classList.toggle('active', theme === 'dark');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setTheme(saved || (prefersDark ? 'dark' : 'light'));
-
-    document.getElementById('btnLight').addEventListener('click', () => setTheme('light'));
-    document.getElementById('btnDark').addEventListener('click', () => setTheme('dark'));
-});
-
-// ────────────────────────────────────────────────
 // BOARD DATA & CONFIG
 // ────────────────────────────────────────────────
 
@@ -287,10 +271,12 @@ async function loadBoard() {
     const loading = document.getElementById('loading');
     const board = document.getElementById('board');
     const quickMetrics = document.getElementById('quickMetrics');
+    const stageCountCards = document.getElementById('stageCountCards');
 
     loading.classList.remove('d-none');
     board.innerHTML = '';
-    quickMetrics.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
+    if (quickMetrics) quickMetrics.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
+    if (stageCountCards) stageCountCards.innerHTML = '';
 
     try {
         const boardRes = await fetch('/board');
@@ -301,13 +287,15 @@ async function loadBoard() {
         if (!metricsRes.ok) throw new Error('Failed to load metrics');
         const metricsData = await metricsRes.json();
 
-        // Metrics
+        // ── Metrics ────────────────────────────────────────────────────────────
+
+        // 1. Icon-based glass cards
         let metricsHtml = '';
         Object.entries(metricsData.items_per_stage).forEach(([stage, count], i) => {
             const colors = ["purple", "emerald", "amber", "rose", "blue"];
             const icons  = ["assignment", "brush", "code", "bug_report", "rocket_launch"];
             metricsHtml += `
-                <div class="col-6 col-md-4 col-lg-3 col-xl">
+                <div class="col-6 col-md-4 col-lg-6 col-xl-4">
                     <div class="glass rounded-3xl p-4 shadow-sm border-l-4 border-l-${colors[i]}-500">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -322,9 +310,50 @@ async function loadBoard() {
                 </div>
             `;
         });
-        quickMetrics.innerHTML = metricsHtml;
+        if (quickMetrics) quickMetrics.innerHTML = metricsHtml;
 
-        // Board columns
+        // 2. Pie Chart
+        new Chart(document.getElementById('stagePieChart'), {
+            type: 'pie',
+            data: {
+                labels: Object.keys(metricsData.items_per_stage),
+                datasets: [{
+                    data: Object.values(metricsData.items_per_stage),
+                    backgroundColor: ['#c4b5fd','#6ee7b7','#fcd34d','#fca5a5','#93c5fd'],
+                    borderColor: ['#7c3aed','#10b981','#d97706','#ef4444','#3b82f6'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: document.documentElement.getAttribute('data-bs-theme') === 'dark' ? '#e2e8f0' : '#334155',
+                            font: { size: 13 }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Compact count cards
+        let countCardsHtml = '';
+        Object.entries(metricsData.items_per_stage).forEach(([stage, count]) => {
+            countCardsHtml += `
+                <div class="col-6 col-sm-4 col-md-3">
+                    <div class="glass rounded-3 p-3 text-center shadow-sm">
+                        <div class="small text-muted fw-medium">${stage}</div>
+                        <div class="fs-4 fw-bold text-dark mt-1">${count}</div>
+                    </div>
+                </div>
+            `;
+        });
+        if (stageCountCards) stageCountCards.innerHTML = countCardsHtml;
+
+        // ── Board Columns ──────────────────────────────────────────────────────
         board.innerHTML = '';
         STAGES.forEach(stage => {
             const items = boardData[stage] || [];
@@ -384,7 +413,8 @@ async function loadBoard() {
         initSearch();
 
     } catch (err) {
-        quickMetrics.innerHTML = '';
+        if (quickMetrics) quickMetrics.innerHTML = '';
+        if (stageCountCards) stageCountCards.innerHTML = '';
         board.innerHTML = `<div class="alert alert-danger w-100 text-center p-5">Could not load data: ${err.message}</div>`;
     } finally {
         loading.classList.add('d-none');
@@ -392,7 +422,7 @@ async function loadBoard() {
 }
 
 // ────────────────────────────────────────────────
-// DRAG & DROP
+// DRAG & DROP (unchanged)
 // ────────────────────────────────────────────────
 
 let draggedCard = null;
@@ -440,19 +470,7 @@ function initDragAndDrop() {
             const itemId = draggedCard.dataset.id;
             if (!itemId) return;
 
-            // Optimistic UI update
             zone.appendChild(draggedCard);
-
-            // TODO: call backend
-            // fetch(`/workitems/${itemId}/move`, {
-            //     method: 'PATCH',
-            //     headers: {'Content-Type': 'application/json'},
-            //     body: JSON.stringify({ new_stage: newStage })
-            // }).catch(err => {
-            //     console.error(err);
-            //     alert('Move failed');
-            //     loadBoard(); // rollback
-            // });
 
             updateColumnCounts();
         });
@@ -477,7 +495,7 @@ function updateColumnCounts() {
 }
 
 // ────────────────────────────────────────────────
-// SEARCH / FILTER
+// SEARCH
 // ────────────────────────────────────────────────
 
 function initSearch() {
@@ -495,14 +513,13 @@ function initSearch() {
 }
 
 // ────────────────────────────────────────────────
-// MODAL & FORM HANDLERS (placeholders)
+// MODAL HANDLERS (placeholders)
 // ────────────────────────────────────────────────
 
 async function openItem(id) {
     console.log(`Opening item ${id}`);
     const modal = new bootstrap.Modal(document.getElementById('itemModal'));
     modal.show();
-    // TODO: fetch(`/workitems/${id}`) and populate modalContent
 }
 
 document.getElementById('createForm')?.addEventListener('submit', e => {
@@ -513,19 +530,9 @@ document.getElementById('createForm')?.addEventListener('submit', e => {
 
     if (!title) return;
 
-    // TODO: POST to backend
-    // fetch('/workitems', {
-    //     method: 'POST',
-    //     headers: {'Content-Type': 'application/json'},
-    //     body: JSON.stringify({ title, priority, description: desc })
-    // }).then(() => {
-    //     bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
-    //     loadBoard();
-    // });
-
     alert(`Creating: ${title} (${priority})`);
     bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
-    loadBoard(); // simulate refresh
+    loadBoard();
 });
 
 document.getElementById('regressionForm')?.addEventListener('submit', e => {
