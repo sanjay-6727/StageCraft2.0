@@ -1,60 +1,199 @@
 ﻿{% extends "layout.html" %}
 
 {% block content %}
-<h3 class="fw-semibold mb-4">Process & Workflow Metrics</h3>
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center">
+                <span class="material-symbols-outlined fs-2 me-2 text-primary">monitoring</span>
+                Lifecycle Analytics Dashboard
+            </h3>
+            <div class="text-muted small">Enterprise Workflow & Bottleneck Intelligence</div>
+        </div>
+        <a href="/ui/board" class="btn btn-outline-secondary rounded-pill px-4 fw-medium">
+            <span class="material-symbols-outlined fs-6 align-middle me-1">view_kanban</span> Back to Board
+        </a>
+    </div>
 
-<div class="row g-3">
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="section-title">Stage Distribution</h6>
-                <canvas id="pieChart" height="250"></canvas>
+    <!-- Quick Stats Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-primary">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold text-uppercase mb-1">Total Items</div>
+                    <div class="fs-2 fw-extrabold text-dark" id="statTotalItems">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold text-uppercase mb-1">Total Transitions</div>
+                    <div class="fs-2 fw-extrabold text-dark" id="statTotalTrans">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold text-uppercase mb-1">Items Regressed</div>
+                    <div class="fs-2 fw-extrabold text-dark" id="statRegressions">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-danger">
+                <div class="card-body">
+                    <div class="text-muted small fw-bold text-uppercase mb-1">Defect Escape Rate</div>
+                    <div class="fs-2 fw-extrabold text-dark" id="statEscapeRate">-%</div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-12 col-lg-6">
-        <h6 class="section-title">Item Counts</h6>
-        <div class="row g-3" id="metricCards"></div>
-    </div>
-</div>
 
-<script>
-async function loadMetrics() {
-    const res = await fetch('/metrics');
-    const data = await res.json();
-
-    // Pie Chart
-    new Chart(document.getElementById('pieChart'), {
-        type: 'pie',
-        data: {
-            labels: Object.keys(data.items_per_stage),
-            datasets: [{
-                data: Object.values(data.items_per_stage),
-                backgroundColor: ['#e3f2fd', '#e8f5e9', '#fff3e0', '#f3e5f5', '#e0f7fa'],
-                borderColor: ['#90caf9', '#a5d6a7', '#ffcc80', '#ce93d8', '#80deea'],
-                borderWidth: 1
-            }]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-
-    // Cards
-    let html = '';
-    for (const stage in data.items_per_stage) {
-        html += `
-            <div class="col-6">
-                <div class="card shadow-sm text-center">
-                    <div class="card-body py-3">
-                        <h6 class="text-uppercase text-muted mb-1">${stage}</h6>
-                        <h2 class="fw-bold mb-0">${data.items_per_stage[stage]}</h2>
+    <div class="row g-4 mb-4">
+        <!-- Stage Aging & Bottlenecks -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0">
+                    <h6 class="fw-bold mb-0 d-flex align-items-center">
+                        <span class="material-symbols-outlined fs-5 me-2 text-danger">hourglass_bottom</span>
+                        Stage Aging & Bottleneck Detection
+                    </h6>
+                    <small class="text-muted">Average time spent per work item in each stage</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="small text-muted text-uppercase fw-bold border-0 rounded-start">Stage
+                                    </th>
+                                    <th class="small text-muted text-uppercase fw-bold border-0">Items Currently Here
+                                    </th>
+                                    <th class="small text-muted text-uppercase fw-bold border-0">Avg Aging (Days)</th>
+                                    <th class="small text-muted text-uppercase fw-bold border-0 rounded-end">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agingTableBody">
+                                <!-- JS injected -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        `;
-    }
-    document.getElementById('metricCards').innerHTML = html;
-}
+        </div>
 
-window.addEventListener('load', loadMetrics);
+        <!-- Regression Intelligence (Heatmap proxy) -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0">
+                    <h6 class="fw-bold mb-0 d-flex align-items-center">
+                        <span class="material-symbols-outlined fs-5 me-2 text-warning">warning</span>
+                        Regression Origins
+                    </h6>
+                    <small class="text-muted">Where do items fail most often?</small>
+                </div>
+                <div class="card-body" style="height: 300px; position: relative;">
+                    <canvas id="regressionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    async function loadMetrics() {
+        try {
+            const res = await fetch('/metrics');
+            if (!res.ok) throw new Error("Failed to fetch metrics.");
+            const data = await res.json();
+
+            // 1. Quick Stats
+            document.getElementById('statTotalItems').textContent = data.total_items;
+            document.getElementById('statTotalTrans').textContent = data.total_stage_transitions;
+            document.getElementById('statRegressions').textContent = data.items_with_regressions;
+
+            const escapeRate = data.total_items > 0 ? ((data.items_with_regressions / data.total_items) * 100).toFixed(1) : 0;
+            document.getElementById('statEscapeRate').textContent = escapeRate + '%';
+
+            // 2. Stage Aging Table
+            const limits = { "Requirement": 7, "Design": 10, "Implementation": 14, "Testing": 7, "Release": 3 };
+            let tableHtml = '';
+            for (const [stage, avgDays] of Object.entries(data.avg_aging_days)) {
+                const itemCount = data.items_per_stage[stage] || 0;
+                const expected = limits[stage] || 10;
+
+                let statusHtml = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1"><span class="material-symbols-outlined fs-6 align-middle me-1">check_circle</span> Healthy</span>`;
+
+                if (avgDays >= expected * 0.8 && avgDays <= expected) {
+                    statusHtml = `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1"><span class="material-symbols-outlined fs-6 align-middle me-1">warning</span> Warning</span>`;
+                } else if (avgDays > expected) {
+                    statusHtml = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1"><span class="material-symbols-outlined fs-6 align-middle me-1">local_fire_department</span> Bottleneck</span>`;
+                }
+
+                tableHtml += `
+            <tr>
+                <td class="fw-bold">${stage}</td>
+                <td><span class="badge bg-secondary rounded-pill px-3">${itemCount}</span></td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="fw-bold me-2 fs-5 ${avgDays > expected ? 'text-danger' : ''}">${avgDays}</span>
+                        <div class="progress w-100" style="height: 6px;">
+                            <div class="progress-bar ${avgDays > expected ? 'bg-danger' : 'bg-primary'}" style="width: ${Math.min((avgDays / expected) * 100, 100)}%;"></div>
+                        </div>
+                    </div>
+                </td>
+                <td>${statusHtml}</td>
+            </tr>
+            `;
+            }
+            document.getElementById('agingTableBody').innerHTML = tableHtml;
+
+            // 3. Regression Origins Chart (Radar or Bar)
+            const radarCtx = document.getElementById('regressionChart');
+            if (window.regressionChartInstance) window.regressionChartInstance.destroy();
+
+            window.regressionChartInstance = new Chart(radarCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.failure_origins),
+                    datasets: [{
+                        label: 'Regressions Triggered',
+                        data: Object.values(data.failure_origins),
+                        backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                        borderColor: 'rgb(239, 68, 68)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    document.addEventListener('DOMContentLoaded', loadMetrics);
 </script>
+<style>
+    .glass {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+</style>
 {% endblock %}

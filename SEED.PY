@@ -5,20 +5,25 @@ app = create_app()
 
 def seed():
     with app.app_context():
-
         # Clear old data (optional for demo reset)
-        TransitionLog.query.delete()
-        Artifact.query.delete()
-        WorkItem.query.delete()
+        db.drop_all() 
+        db.create_all()
+        
+        from models import Project, User, Approval, CodeFile, Comment
+        
+        # Seed a default project so project_id=1 doesn't fail
+        db.session.add(Project(name="Global Stagecraft Init", description="Internal enterprise rollout"))
         db.session.commit()
 
         # ─────────────────────────────────────────
         # 1️⃣ Requirement Stage Items
         # ─────────────────────────────────────────
         w1 = WorkItem(title="User Authentication System",
-                      description="Implement login, logout, and JWT-based auth.")
+                      description="Implement login, logout, and JWT-based auth.",
+                      priority="Critical", assignee="Alice Hacker")
         w2 = WorkItem(title="Payment Gateway Integration",
-                      description="Integrate Stripe API for transactions.")
+                      description="Integrate Stripe API for transactions.",
+                      priority="High", assignee="Bob Security")
 
         db.session.add_all([w1, w2])
         db.session.commit()
@@ -27,7 +32,8 @@ def seed():
         # 2️⃣ Design Stage Item
         # ─────────────────────────────────────────
         w3 = WorkItem(title="Dashboard Redesign",
-                      description="Modernize UI with responsive layout.")
+                      description="Modernize UI with responsive layout.",
+                      priority="Medium", assignee="Charlie Design")
         db.session.add(w3)
         db.session.commit()
 
@@ -55,7 +61,8 @@ def seed():
         # 3️⃣ Implementation Stage Item
         # ─────────────────────────────────────────
         w4 = WorkItem(title="Email Notification Service",
-                      description="Send transactional emails via SMTP.")
+                      description="Send transactional emails via SMTP.",
+                      priority="Low", assignee="Dana Ops")
         db.session.add(w4)
         db.session.commit()
 
@@ -81,7 +88,8 @@ def seed():
         # 4️⃣ Testing Stage With Regression
         # ─────────────────────────────────────────
         w5 = WorkItem(title="Report Generation Module",
-                      description="Generate downloadable analytics reports.")
+                      description="Generate downloadable analytics reports.",
+                      priority="High", assignee="Eve Analyst")
         db.session.add(w5)
         db.session.commit()
 
@@ -102,6 +110,9 @@ def seed():
             w5.current_stage = STAGES[STAGES.index(stage)+1]
 
         db.session.commit()
+
+        from models import Comment
+        db.session.add(Comment(work_item_id=w5.id, author="Test QA", content="Found performance bottlenecks."))
 
         # Simulate regression
         db.session.add(TransitionLog(
