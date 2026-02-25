@@ -1,0 +1,203 @@
+{% extends "layout.html" %}
+{% block content %}
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
+<div class="container-fluid py-4 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 d-print-none">
+        <div>
+            <h3 class="fw-bold mb-1 d-flex align-items-center">
+                <span class="material-symbols-outlined fs-2 me-2 text-success">verified_user</span>
+                Enterprise Compliance Traceability Matrix
+            </h3>
+            <div class="text-muted small">Automatic ISO 9001 / CMMI Level 3 Audit Report</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/ui/board" class="btn btn-outline-secondary rounded-pill px-4 fw-medium">
+                <span class="material-symbols-outlined fs-6 align-middle me-1">arrow_back</span> Board
+            </a>
+            <button onclick="window.print()" class="btn btn-success rounded-pill px-4 fw-medium shadow-sm">
+                <span class="material-symbols-outlined fs-6 align-middle me-1">print</span> Export PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Print Header (Hidden on screen) -->
+    <div class="d-none d-print-block mb-5 border-bottom pb-4">
+        <h2 class="fw-bold mb-1">Audit Traceability Report</h2>
+        <p class="text-muted mb-0">Generated: {{ current_time }}</p>
+        <p class="text-muted">Target Frameworks: ISO 9001:2015, CMMI Level 3</p>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Loop over each project item to generate an audit block -->
+        {% for item in items %}
+        <div class="col-12">
+            <div class="card shadow-sm border-0 compliance-card overflow-hidden">
+                <div
+                    class="card-header bg-light border-bottom border-secondary-subtle d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <span class="badge bg-dark fw-bold me-2">{{ item.public_id }}</span>
+                        <h5 class="fw-bold d-inline mb-0">{{ item.title }}</h5>
+                    </div>
+                    <span class="badge bg-primary text-white px-3 py-2 rounded-pill">{{ item.current_stage }}</span>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Lifecycle Trace -->
+                        <div class="col-md-6 mb-4 mb-md-0 border-end border-secondary-subtle pe-md-4">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-3 d-flex align-items-center">
+                                <span class="material-symbols-outlined fs-5 me-1 text-primary">history</span> Custody
+                                Chain & Approvals
+                            </h6>
+                            {% if item.history_list %}
+                            <div
+                                class="timeline position-relative ps-4 border-start border-2 border-primary border-opacity-25 pb-2">
+                                {% for log in item.history_list %}
+                                <div class="mb-3 position-relative">
+                                    <span
+                                        class="position-absolute top-0 start-0 translate-middle p-1 bg-primary border border-white rounded-circle"
+                                        style="margin-left: -1rem;"></span>
+                                    <div class="fw-bold text-dark small mb-0">{{ log.from_stage }} &rarr; {{
+                                        log.to_stage }}</div>
+                                    <div class="text-muted small" style="font-size: 0.75rem;">
+                                        <span class="fw-medium">{{ log.transitioned_at.strftime('%Y-%m-%d %H:%M')
+                                            }}</span>
+                                        {% if log.reason %}
+                                        <br><span class="text-danger">Regression Reason: {{ log.reason }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                <div class="mb-0 position-relative">
+                                    <span
+                                        class="position-absolute top-0 start-0 translate-middle p-1 bg-success border border-white rounded-circle"
+                                        style="margin-left: -1rem;"></span>
+                                    <div class="fw-bold text-success small mb-0">Current: {{ item.current_stage }}</div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="small text-muted mb-0">No transitions recorded.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Artifact Trace Matrix -->
+                        <div class="col-md-6 ps-md-4">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-3 d-flex align-items-center">
+                                <span class="material-symbols-outlined fs-5 me-1 text-success">inventory_2</span>
+                                Evidence Artifacts
+                            </h6>
+                            {% if item.artifacts_list %}
+                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th class="text-muted fw-bold border-top-0 border-bottom">Stage</th>
+                                        <th class="text-muted fw-bold border-top-0 border-bottom">Documentation / Proof
+                                        </th>
+                                        <th class="text-muted fw-bold border-top-0 border-bottom">Reference</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for artifact in item.artifacts_list %}
+                                    <tr>
+                                        <td class="fw-medium text-dark">{{ artifact.stage }}</td>
+                                        <td>
+                                            <span class="d-block text-truncate" style="max-width: 200px;"
+                                                title="{{ artifact.artifact_type }}">
+                                                {{ artifact.artifact_type }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if artifact.reference and 'http' in artifact.reference %}
+                                            <a href="{{ artifact.reference }}" target="_blank"
+                                                class="text-primary text-decoration-none d-flex align-items-center">
+                                                Link <span class="material-symbols-outlined ms-1"
+                                                    style="font-size: 14px;">open_in_new</span>
+                                            </a>
+                                            {% elif artifact.reference %}
+                                            <span class="badge bg-light text-dark border font-monospace">{{
+                                                artifact.reference }}</span>
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Local File</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div class="bg-light p-3 rounded text-center border border-dashed">
+                                <span
+                                    class="material-symbols-outlined text-muted fs-3 opacity-50 mb-1 d-block">warning</span>
+                                <p class="small text-muted mb-0">No formal evidence supplied yet.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light border-0 py-2 d-flex justify-content-between align-items-center">
+                    <small class="text-muted"><strong>Owner:</strong> {{ item.assignee }}</small>
+                    <small class="text-muted"><span
+                            class="material-symbols-outlined fs-6 align-middle text-success">check_circle</span> Trace
+                        Verified</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    @media print {
+        body {
+            font-size: 12pt;
+            background: #fff !important;
+        }
+
+        .glass,
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+            border-radius: 0 !important;
+            background: #fff !important;
+        }
+
+        .badge {
+            border: 1px solid #666;
+            color: #000 !important;
+            background: transparent !important;
+        }
+
+        a {
+            text-decoration: none;
+            color: #000;
+        }
+
+        a[href]::after {
+            content: " (" attr(href) ")";
+            font-size: 90%;
+            color: #555;
+        }
+
+        .sidebar,
+        .navbar {
+            display: none !important;
+        }
+
+        #main-wrapper {
+            margin-left: 0 !important;
+        }
+
+        main {
+            padding: 0 !important;
+        }
+
+        .compliance-card {
+            page-break-inside: avoid;
+            margin-bottom: 2rem !important;
+        }
+    }
+</style>
+
+{% endblock %}

@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, UniqueConstraint, func
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import uuid
 
@@ -16,7 +17,16 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256))
     role = db.Column(db.String(50), nullable=False, default="Developer") # Developer, Tester, Architect, Manager, Admin
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
         return {"id": self.id, "username": self.username, "role": self.role}
@@ -28,6 +38,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
+    sdlc_practice = db.Column(db.String(50), nullable=False, default="Agile")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     work_items = db.relationship(
