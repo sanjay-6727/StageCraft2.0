@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index, UniqueConstraint, func
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import uuid
 
@@ -16,7 +17,16 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256))
     role = db.Column(db.String(50), nullable=False, default="Developer") # Developer, Tester, Architect, Manager, Admin
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
         return {"id": self.id, "username": self.username, "role": self.role}
@@ -28,6 +38,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
+    sdlc_practice = db.Column(db.String(50), nullable=False, default="Agile")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     work_items = db.relationship(
@@ -82,12 +93,11 @@ class WorkItem(db.Model):
     )
     last_transition_at = db.Column(db.DateTime, nullable=True)
 
-    # Future ownership / responsibility (uncomment when User model exists)
-    # created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    # current_owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships
     project = db.relationship('Project', back_populates='work_items')
+    owner = db.relationship('User', foreign_keys=[owner_id])
 
     artifacts = db.relationship(
         'Artifact',
@@ -191,6 +201,7 @@ class CodeFile(db.Model):
         index=True
     )
     filename = db.Column(db.String(255), nullable=False)
+    branch = db.Column(db.String(100), nullable=False, default="main")
     content = db.Column(db.Text, nullable=False, default="")
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -200,8 +211,42 @@ class CodeFile(db.Model):
         return {
             "id": self.id,
             "filename": self.filename,
+            "branch": self.branch,
             "content": self.content,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class WorkspaceBranch(db.Model):
+    """
+    Explicit branch metadata per work item so that branches can exist
+    even before any files are pushed.
+    """
+
+    __tablename__ = 'workspace_branches'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_item_id = db.Column(
+        db.Integer,
+        db.ForeignKey('work_items.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    is_merged = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint('work_item_id', 'name', name='uq_workspace_branch_per_item'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "work_item_id": self.work_item_id,
+            "name": self.name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

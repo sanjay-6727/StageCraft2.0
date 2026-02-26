@@ -164,8 +164,15 @@ def validate_transition(
     work_item,
     target_stage: str,
     regression_reason: str | None = None,
-    user_role: str | None = None
+    user_role: str | None = None,
+    requester_id: int | None = None
 ) -> tuple[bool, str, dict]:
+    # Strictly block if requester is not the owner (unless Admin)
+    # Note: requester_id equality check is requested specifically
+    if work_item.owner_id is not None and requester_id is not None:
+        if int(requester_id) != int(work_item.owner_id) and user_role != "Admin":
+            return False, "FORBIDDEN: Only the workspace owner can request a stage transition.", {}
+
     if not is_valid_stage(target_stage):
         return False, f"Invalid stage: {target_stage}", {}
 

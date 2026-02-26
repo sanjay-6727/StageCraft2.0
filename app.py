@@ -6,6 +6,7 @@ from routes import register_routes
 def create_app():
     app = Flask(__name__)
     
+    app.secret_key = 'super_secret_stagecraft_key'
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///stagecraft.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     

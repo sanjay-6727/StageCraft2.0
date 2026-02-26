@@ -610,6 +610,11 @@
                     <a href="/ui/editor/${data.id}" class="btn btn-outline-dark btn-sm rounded-pill mt-1 fw-bold">
                         <span class="material-symbols-outlined fs-6 align-middle me-1">code</span> Open Workspace
                     </a>
+                    ${data.current_stage === 'Implementation' ? `
+                    <button onclick="triggerPipeline(${data.id})" class="btn btn-outline-success btn-sm rounded-pill mt-1 fw-bold ms-2" id="pipelineBtn">
+                        <span class="material-symbols-outlined fs-6 align-middle me-1">rocket_launch</span> Trigger Pipeline
+                    </button>
+                    ` : ''}
                     <p class="mt-3 text-dark small">${data.description || 'No description provided.'}</p>
                     
                     <hr class="my-4">
@@ -641,6 +646,29 @@
         `;
         } catch (err) {
             modalContent.innerHTML = `<div class="alert alert-danger shadow-sm border-0 m-3">${err.message}</div>`;
+        }
+    }
+
+    window.triggerPipeline = async function (id) {
+        const btn = document.getElementById('pipelineBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Running Build...';
+        }
+        try {
+            const res = await fetch(`/workitems/${id}/pipeline/trigger`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Pipeline failed');
+
+            alert(data.message);
+            bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide();
+            loadBoard();
+        } catch (err) {
+            alert(err.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined fs-6 align-middle me-1">rocket_launch</span> Trigger Pipeline';
+            }
         }
     }
 

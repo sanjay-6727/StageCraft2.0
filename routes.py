@@ -1,5 +1,6 @@
-﻿from flask import request, jsonify, render_template
-from models import db, WorkItem, Artifact, TransitionLog, Comment, CodeFile
+﻿from flask import request, jsonify, render_template, session, redirect, url_for
+from functools import wraps
+from models import db, WorkItem, Artifact, TransitionLog, Comment, CodeFile, User, Project, WorkspaceBranch
 from validators import (
     validate_transition,
     can_add_artifact,
@@ -10,6 +11,14 @@ from validators import (
 )
 
 def register_routes(app):
+
+    def api_login_required(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return jsonify({"error": "Authentication required. Please log in."}), 401
+            return f(*args, **kwargs)
+        return decorated_function
 
     # ────────────────────────────────────────────────
     #  1. Health / Root
@@ -23,6 +32,7 @@ def register_routes(app):
     #  2. Work Item CRUD
     # ────────────────────────────────────────────────
     @app.route("/workitems", methods=["POST"])
+    @api_login_required
     def create_workitem():
         data = request.get_json(silent=True) or {}
         
@@ -34,7 +44,8 @@ def register_routes(app):
             description=data.get("description", ""),
             current_stage="Requirement",  # explicit default
             priority=data.get("priority", "Medium"),
-            assignee=data.get("assignee", "Unassigned")
+            assignee=data.get("assignee", "Unassigned"),
+            owner_id=session.get('user_id')
         )
         
         db.session.add(work_item)
@@ -184,25 +195,65 @@ def register_routes(app):
     @app.route("/workitems/<int:id>/code", methods=["GET"])
     def get_code(id):
         work_item = WorkItem.query.get_or_404(id)
-        files = CodeFile.query.filter_by(work_item_id=id).order_by(CodeFile.updated_at.desc()).all()
+        branch = request.args.get("branch") or "main"
+        files = (
+            CodeFile.query.filter_by(work_item_id=id, branch=branch)
+            .order_by(CodeFile.updated_at.desc())
+            .all()
+        )
         return jsonify([f.to_dict() for f in files])
 
     @app.route("/workitems/<int:id>/code", methods=["POST"])
+    @api_login_required
     def push_code(id):
         work_item = WorkItem.query.get_or_404(id)
         data = request.get_json(silent=True) or {}
         
         filename = data.get("filename")
         content = data.get("content", "")
+        branch = data.get("branch") or "main"
+
+        # Permission logic: Only the owner (workspace admin/assignee) or a global Admin can push to main
+        if branch.lower() == "main":
+            user_id = session.get('user_id')
+            current_user = User.query.get(user_id)
+            user_role = session.get('role') or (current_user.role if current_user else "Developer")
+            
+            # Robust comparison (casting to int)
+            is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
+            is_admin = (user_role == 'Admin')
+            
+            # Also check if the current user is the assignee (as another definition of 'owner')
+            is_assignee = (work_item.assignee == session.get('username'))
+            
+            # DEBUG LOGGING (visible in terminal)
+            print(f"--- PUSH PERMISSION CHECK ---")
+            print(f"User ID: {user_id}, Username: {session.get('username')}, Role: {user_role}")
+            print(f"WorkItem Owner ID: {work_item.owner_id}, Assignee: {work_item.assignee}")
+            print(f"is_owner: {is_owner}, is_admin: {is_admin}, is_assignee: {is_assignee}")
+            
+            if not (is_owner or is_admin or is_assignee):
+                print(">>> PUSH BLOCKED: Not authorized for main branch")
+                return jsonify({"error": f"Only the owner ({work_item.assignee or 'authorized user'}) or an Admin can push to main"}), 403
+            print(">>> PUSH ALLOWED")
 
         if not filename:
             return jsonify({"error": "filename is required"}), 400
 
-        code_file = CodeFile.query.filter_by(work_item_id=id, filename=filename).first()
+        code_file = CodeFile.query.filter_by(
+            work_item_id=id,
+            filename=filename,
+            branch=branch
+        ).first()
         if code_file:
             code_file.content = content
         else:
-            code_file = CodeFile(work_item_id=id, filename=filename, content=content)
+            code_file = CodeFile(
+                work_item_id=id,
+                filename=filename,
+                branch=branch,
+                content=content
+            )
             db.session.add(code_file)
             
         db.session.commit()
@@ -213,17 +264,253 @@ def register_routes(app):
         }), 201
 
 
+    @app.route("/workitems/<int:id>/branches", methods=["GET", "POST"])
+    def manage_branches(id):
+        """
+        Lightweight branch management for the code workspace.
+
+        - GET:  returns distinct branch names for this work item
+        - POST: creates a new branch by copying files from an existing branch (default: current 'main')
+        """
+        work_item = WorkItem.query.get_or_404(id)
+
+        if request.method == "GET":
+            # Branches backed by files
+            branch_rows = (
+                db.session.query(CodeFile.branch)
+                .filter_by(work_item_id=id)
+                .distinct()
+                .all()
+            )
+            file_branches = {row[0] for row in branch_rows}
+
+            # Explicit branches with no files yet
+            meta_branches = {
+                b.name for b in WorkspaceBranch.query.filter_by(work_item_id=id).all()
+            }
+
+            existing = file_branches.union(meta_branches)
+
+            # Always expose 'main' as a logical default branch
+            if not existing:
+                branches = ["main"]
+            else:
+                branches = sorted(existing)
+                if "main" not in branches:
+                    branches.insert(0, "main")
+
+            return jsonify({"branches": branches})
+
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        from_branch = (data.get("from_branch") or "main").strip()
+
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+
+        if name == from_branch:
+            return jsonify({"error": "Branch name must differ from source branch"}), 400
+
+        if name.lower() == "main":
+            return jsonify({"error": "Cannot create a branch named 'main'"}), 400
+
+        # Prevent duplicate branch creation – either in metadata or files
+        existing_meta = WorkspaceBranch.query.filter_by(
+            work_item_id=id,
+            name=name
+        ).first()
+        existing_files = (
+            db.session.query(CodeFile.id)
+            .filter_by(work_item_id=id, branch=name)
+            .first()
+        )
+
+        if existing_meta or existing_files:
+            return jsonify({"error": "Branch already exists"}), 400
+
+        branch = WorkspaceBranch(work_item_id=id, name=name, created_by_id=session.get('user_id'))
+        db.session.add(branch)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Branch created",
+            "branch": name,
+            "from_branch": from_branch,
+            "file_count": 0
+        }), 201
+
+
+    @app.route("/workitems/<int:id>/merge", methods=["POST"])
+    @api_login_required
+    def merge_code(id):
+        """
+        Merges code from a source branch into a target branch (default: main).
+        Only the workspace creator or a global Admin can perform merges.
+        """
+        work_item = WorkItem.query.get_or_404(id)
+        data = request.get_json(silent=True) or {}
+        source_branch = (data.get("source_branch") or "").strip()
+        target_branch = (data.get("target_branch") or "main").strip()
+
+        if not source_branch:
+            return jsonify({"error": "source_branch is required"}), 400
+        
+        if source_branch.lower() == target_branch.lower():
+            return jsonify({"error": "Source and target branches must be different"}), 400
+
+        # Check permissions: Owner, Assignee, OR Global Admin
+        user_id = session.get('user_id')
+        current_user = User.query.get(user_id)
+        user_role = session.get('role') or (current_user.role if current_user else "Developer")
+
+        is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
+        is_admin = (user_role == 'Admin')
+        is_assignee = (work_item.assignee == session.get('username'))
+
+        if not (is_owner or is_admin or is_assignee):
+            return jsonify({"error": "Only the workspace owner or an Admin can merge code"}), 403
+
+        # Github logic: copy all files from source branch to target branch
+        source_files = CodeFile.query.filter_by(work_item_id=id, branch=source_branch).all()
+        if not source_files:
+            return jsonify({"error": f"No files found in source branch '{source_branch}'"}), 404
+
+        for s_file in source_files:
+            t_file = CodeFile.query.filter_by(
+                work_item_id=id, 
+                filename=s_file.filename, 
+                branch=target_branch
+            ).first()
+            
+            if t_file:
+                t_file.content = s_file.content
+            else:
+                t_file = CodeFile(
+                    work_item_id=id,
+                    filename=s_file.filename,
+                    branch=target_branch,
+                    content=s_file.content
+                )
+                db.session.add(t_file)
+        
+        # Mark as merged if target is main
+        if target_branch.lower() == "main":
+            source_meta = WorkspaceBranch.query.filter_by(work_item_id=id, name=source_branch).first()
+            if source_meta:
+                source_meta.is_merged = True
+
+        db.session.commit()
+
+        return jsonify({
+            "message": f"Successfully merged '{source_branch}' into '{target_branch}'",
+            "source": source_branch,
+            "target": target_branch,
+            "files_merged": len(source_files)
+        })
+
+
+    @app.route("/workitems/<int:id>/code/delete", methods=["POST"])
+    @api_login_required
+    def delete_code_file(id):
+        work_item = WorkItem.query.get_or_404(id)
+        data = request.get_json(silent=True) or {}
+        filename = data.get("filename")
+        branch_name = data.get("branch") or "main"
+
+        if not filename:
+            return jsonify({"error": "filename is required"}), 400
+
+        user_id = session.get('user_id')
+        current_user = User.query.get(user_id)
+        user_role = session.get('role') or (current_user.role if current_user else "Developer")
+        is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
+        is_admin = (user_role == 'Admin')
+
+        # Rule: Only owner/Admin can delete files in main
+        if branch_name.lower() == "main":
+            if not (is_owner or is_admin):
+                return jsonify({"error": "Only the workspace owner or an Admin can delete files in the main branch"}), 403
+        else:
+            # For other branches, owner/Admin can always delete. 
+            # Normal users can delete if they created the branch and it's not merged.
+            branch_meta = WorkspaceBranch.query.filter_by(work_item_id=id, name=branch_name).first()
+            is_branch_creator = (branch_meta and branch_meta.created_by_id is not None and int(user_id) == int(branch_meta.created_by_id))
+            
+            if not (is_owner or is_admin):
+                if not is_branch_creator:
+                    return jsonify({"error": "You do not have permission to delete files in this branch"}), 403
+                if branch_meta.is_merged:
+                    return jsonify({"error": "Cannot delete files in a branch that has already been merged by the owner"}), 403
+
+        code_file = CodeFile.query.filter_by(
+            work_item_id=id,
+            filename=filename,
+            branch=branch_name
+        ).first()
+
+        if not code_file:
+            return jsonify({"error": "File not found"}), 404
+
+        db.session.delete(code_file)
+        db.session.commit()
+
+        return jsonify({"message": f"File '{filename}' deleted successfully from branch '{branch_name}'"})
+
+
+    @app.route("/workitems/<int:id>/branches/delete", methods=["POST"])
+    @api_login_required
+    def delete_branch(id):
+        work_item = WorkItem.query.get_or_404(id)
+        data = request.get_json(silent=True) or {}
+        branch_name = data.get("name")
+
+        if not branch_name:
+            return jsonify({"error": "branch name is required"}), 400
+
+        if branch_name.lower() == "main":
+            return jsonify({"error": "The main branch cannot be deleted"}), 400
+
+        user_id = session.get('user_id')
+        current_user = User.query.get(user_id)
+        user_role = session.get('role') or (current_user.role if current_user else "Developer")
+        is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
+        is_admin = (user_role == 'Admin')
+
+        branch_meta = WorkspaceBranch.query.filter_by(work_item_id=id, name=branch_name).first()
+        is_branch_creator = (branch_meta and branch_meta.created_by_id is not None and int(user_id) == int(branch_meta.created_by_id))
+
+        # Only owner/Admin or Branch Creator (if not merged) can delete
+        if not (is_owner or is_admin):
+            if not is_branch_creator:
+                return jsonify({"error": "Only the workspace owner or the branch creator can delete this branch"}), 403
+            if branch_meta and branch_meta.is_merged:
+                return jsonify({"error": "Cannot delete a branch that has already been merged by the owner"}), 403
+
+        # Delete all files in this branch
+        CodeFile.query.filter_by(work_item_id=id, branch=branch_name).delete()
+        
+        # Delete branch metadata
+        if branch_meta:
+            db.session.delete(branch_meta)
+            
+        db.session.commit()
+
+        return jsonify({"message": f"Branch '{branch_name}' and its files deleted successfully"})
+
+
     # ────────────────────────────────────────────────
     #  4. Stage Transition (core enforcement point)
     # ────────────────────────────────────────────────
     @app.route("/workitems/<int:id>/transition", methods=["POST"])
+    @api_login_required
     def transition_stage(id):
         work_item = WorkItem.query.get_or_404(id)
         data = request.get_json(silent=True) or {}
 
         target_stage     = data.get("target_stage")
         regression_reason = data.get("reason", "").strip()
-        user_role        = data.get("user_role")   # optional – can come from auth later
+        user_role        = data.get("user_role") or session.get("role")
+        user_id          = session.get("user_id")
 
         if not target_stage:
             return jsonify({"error": "target_stage is required"}), 400
@@ -232,15 +519,20 @@ def register_routes(app):
             work_item=work_item,
             target_stage=target_stage,
             regression_reason=regression_reason if regression_reason else None,
-            user_role=user_role
+            user_role=user_role,
+            requester_id=user_id
         )
 
         if not allowed:
+            status_code = 400
+            if "FORBIDDEN" in message:
+                status_code = 403
+                
             return jsonify({
                 "blocked": True,
                 "reason": message,
                 "meta": extra
-            }), 400
+            }), status_code
 
         # Transition is allowed → execute it
         log = TransitionLog(
@@ -264,7 +556,51 @@ def register_routes(app):
 
 
     # ────────────────────────────────────────────────
-    #  5. Board (kanban-style view)
+    #  4.5. DevOps / CI-CD Pipeline Simulation
+    # ────────────────────────────────────────────────
+    @app.route("/workitems/<int:id>/pipeline/trigger", methods=["POST"])
+    @api_login_required
+    def trigger_pipeline(id):
+        work_item = WorkItem.query.get_or_404(id)
+        
+        # Ownership check
+        user_id = session.get('user_id')
+        user_role = session.get('role')
+        is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
+        is_admin = (user_role == 'Admin')
+        
+        if not (is_owner or is_admin):
+            return jsonify({"error": "FORBIDDEN: Only the workspace owner or an Admin can trigger the pipeline."}), 403
+
+        if work_item.current_stage != "Implementation":
+            return jsonify({"error": "Pipeline can only be triggered in the Implementation stage"}), 400
+            
+        # Auto-supply all required Implementation artifacts to simulate a CI build
+        if not Artifact.query.filter_by(work_item_id=id, stage="Implementation", artifact_type="Unit Test Coverage Report").first():
+            db.session.add(Artifact(work_item_id=id, stage="Implementation", artifact_type="Unit Test Coverage Report", reference="https://ci.devops.internal/coverage/938", comment="Auto-generated by Jenkins CI"))
+            
+        if not Artifact.query.filter_by(work_item_id=id, stage="Implementation", artifact_type="Source Code Reference").first():
+            db.session.add(Artifact(work_item_id=id, stage="Implementation", artifact_type="Source Code Reference", reference="fb881d3", comment="Auto-merged PR by GitHub Actions"))
+
+        if not Artifact.query.filter_by(work_item_id=id, stage="Implementation", artifact_type="API Specification").first():
+            db.session.add(Artifact(work_item_id=id, stage="Implementation", artifact_type="API Specification", reference="https://swagger.internal/auto", comment="Auto-generated Swagger spec"))
+            
+        # Auto-Transition to Testing
+        log = TransitionLog(
+            work_item_id=id,
+            from_stage="Implementation",
+            to_stage="Testing",
+            reason=None
+        )
+        work_item.current_stage = "Testing"
+        
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "CI/CD Pipeline Succeeded. Artifacts auto-generated and item moved straight to Testing.",
+            "new_stage": "Testing"
+        })
     # ────────────────────────────────────────────────
     @app.route("/board", methods=["GET"])
     def stage_board():
@@ -330,16 +666,92 @@ def register_routes(app):
             "failure_origins": failure_origins
         })
 
+    def login_required(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('ui_login'))
+            return f(*args, **kwargs)
+        return decorated_function
+
+    @app.route("/ui/login", methods=["GET", "POST"])
+    def ui_login():
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            user = User.query.filter(User.username.ilike(username)).first()
+            if user and user.check_password(password):
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['role'] = user.role
+                return redirect(url_for("ui_board"))
+            return render_template("login.html", error="Invalid credentials")
+        return render_template("login.html")
+
+    @app.route("/ui/register", methods=["GET", "POST"])
+    def ui_register():
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            role = request.form.get("role", "Developer")
+            
+            if not username or not password:
+                return render_template("register.html", error="Username and password are required")
+                
+            if User.query.filter(User.username.ilike(username)).first():
+                return render_template("register.html", error="Username already exists")
+            user = User(username=username, role=role)
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['role'] = user.role
+            return redirect(url_for("ui_board"))
+        return render_template("register.html")
+
+    @app.route("/ui/logout")
+    def ui_logout():
+        session.clear()
+        return redirect(url_for("ui_login"))
+
+    @app.route("/ui/projects", methods=["GET", "POST"])
+    @login_required
+    def ui_projects():
+        if request.method == "POST":
+            name = request.form.get("name")
+            description = request.form.get("description")
+            sdlc_practice = request.form.get("sdlc_practice", "Agile")
+            if name:
+                project = Project(name=name, description=description, sdlc_practice=sdlc_practice)
+                db.session.add(project)
+                db.session.commit()
+                return redirect(url_for("ui_projects"))
+        projects = Project.query.order_by(Project.created_at.desc()).all()
+        return render_template("projects.html", projects=projects)
+
     # Optional: UI entry points (if you keep serving templates)
     @app.route("/ui/board")
+    @login_required
     def ui_board():
         return render_template("board.html")
 
     @app.route("/ui/metrics")
+    @login_required
     def ui_metrics():
         return render_template("metrics.html")
         
     @app.route("/ui/editor/<int:id>")
+    @login_required
     def ui_editor(id):
         work_item = WorkItem.query.get_or_404(id)
         return render_template("editor.html", work_item=work_item)
+        
+    @app.route("/ui/compliance")
+    @login_required
+    def ui_compliance():
+        items = WorkItem.query.order_by(WorkItem.id.asc()).all()
+        for item in items:
+            item.artifacts_list = Artifact.query.filter_by(work_item_id=item.id).order_by(Artifact.created_at).all()
+            item.history_list = TransitionLog.query.filter_by(work_item_id=item.id).order_by(TransitionLog.transitioned_at).all()
+        return render_template("compliance.html", items=items)
