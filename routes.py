@@ -1,6 +1,6 @@
 ﻿from flask import request, jsonify, render_template, session, redirect, url_for
 from functools import wraps
-from models import db, WorkItem, Artifact, TransitionLog, Comment, CodeFile, User, Project, WorkspaceBranch
+from models import db, WorkItem, Artifact, TransitionLog, Comment, CodeFile, User, Project
 from validators import (
     validate_transition,
     can_add_artifact,
@@ -559,19 +559,8 @@ def register_routes(app):
     #  4.5. DevOps / CI-CD Pipeline Simulation
     # ────────────────────────────────────────────────
     @app.route("/workitems/<int:id>/pipeline/trigger", methods=["POST"])
-    @api_login_required
     def trigger_pipeline(id):
         work_item = WorkItem.query.get_or_404(id)
-        
-        # Ownership check
-        user_id = session.get('user_id')
-        user_role = session.get('role')
-        is_owner = (work_item.owner_id is not None and int(user_id) == int(work_item.owner_id))
-        is_admin = (user_role == 'Admin')
-        
-        if not (is_owner or is_admin):
-            return jsonify({"error": "FORBIDDEN: Only the workspace owner or an Admin can trigger the pipeline."}), 403
-
         if work_item.current_stage != "Implementation":
             return jsonify({"error": "Pipeline can only be triggered in the Implementation stage"}), 400
             
@@ -677,13 +666,12 @@ def register_routes(app):
     @app.route("/ui/login", methods=["GET", "POST"])
     def ui_login():
         if request.method == "POST":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
-            user = User.query.filter(User.username.ilike(username)).first()
+            username = request.form.get("username")
+            password = request.form.get("password")
+            user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
                 session['user_id'] = user.id
                 session['username'] = user.username
-                session['role'] = user.role
                 return redirect(url_for("ui_board"))
             return render_template("login.html", error="Invalid credentials")
         return render_template("login.html")
@@ -691,14 +679,10 @@ def register_routes(app):
     @app.route("/ui/register", methods=["GET", "POST"])
     def ui_register():
         if request.method == "POST":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
+            username = request.form.get("username")
+            password = request.form.get("password")
             role = request.form.get("role", "Developer")
-            
-            if not username or not password:
-                return render_template("register.html", error="Username and password are required")
-                
-            if User.query.filter(User.username.ilike(username)).first():
+            if User.query.filter_by(username=username).first():
                 return render_template("register.html", error="Username already exists")
             user = User(username=username, role=role)
             user.set_password(password)
@@ -706,7 +690,6 @@ def register_routes(app):
             db.session.commit()
             session['user_id'] = user.id
             session['username'] = user.username
-            session['role'] = user.role
             return redirect(url_for("ui_board"))
         return render_template("register.html")
 

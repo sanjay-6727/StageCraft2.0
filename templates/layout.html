@@ -40,42 +40,25 @@
 
   <style>
     :root {
-      /* Light theme variables */
-      --bg-body-light: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      --glass-bg-light: rgba(255, 255, 255, 0.72);
-      --glass-border-light: rgba(255, 255, 255, 0.30);
-      --glass-shadow-light: 0 10px 40px rgba(31, 38, 135, 0.12);
-      --scrollbar-thumb-light: #94a3b8;
-
-      /* Dark theme variables */
-      --bg-body-dark: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      --glass-bg-dark: rgba(30, 41, 59, 0.64);
-      --glass-border-dark: rgba(255, 255, 255, 0.10);
-      --glass-shadow-dark: 0 10px 40px rgba(0, 0, 0, 0.45);
-      --scrollbar-thumb-dark: #475569;
-
-      /* Active theme tokens (default to light) */
-      --glass-bg: var(--glass-bg-light);
-      --glass-border: var(--glass-border-light);
-      --glass-shadow: var(--glass-shadow-light);
-      --scrollbar-thumb: var(--scrollbar-thumb-light);
+      --glass-bg: rgba(255, 255, 255, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.30);
+      --glass-shadow: 0 10px 40px rgba(31, 38, 135, 0.12);
     }
 
     [data-bs-theme="dark"] {
-      --glass-bg: var(--glass-bg-dark);
-      --glass-border: var(--glass-border-dark);
-      --glass-shadow: var(--glass-shadow-dark);
-      --scrollbar-thumb: var(--scrollbar-thumb-dark);
+      --glass-bg: rgba(30, 41, 59, 0.64);
+      --glass-border: rgba(255, 255, 255, 0.10);
+      --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
     }
 
     body {
       font-family: 'Manrope', system-ui, sans-serif;
-      background: var(--bg-body-light);
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       min-height: 100vh;
     }
 
     [data-bs-theme="dark"] body {
-      background: var(--bg-body-dark);
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
 
     .glass {
@@ -102,38 +85,12 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: var(--scrollbar-thumb);
+      background: #94a3b8;
       border-radius: 3px;
     }
 
-    /* Dark mode surface & text adjustments for readability */
-    [data-bs-theme="dark"] .bg-white,
-    [data-bs-theme="dark"] .bg-light,
-    [data-bs-theme="dark"] .card,
-    [data-bs-theme="dark"] .modal-content,
-    [data-bs-theme="dark"] .form-control,
-    [data-bs-theme="dark"] .form-select,
-    [data-bs-theme="dark"] .input-group-text {
-      background-color: #020617 !important;
-      /* dark slate */
-      color: #e5e7eb !important;
-      /* slate-200 */
-      border-color: #1f2937 !important;
-      /* slate-800-ish */
-    }
-
-    [data-bs-theme="dark"] .border-light {
-      border-color: #1f2937 !important;
-    }
-
-    [data-bs-theme="dark"] .btn-outline-dark {
-      color: #e5e7eb;
-      border-color: #4b5563;
-    }
-
-    [data-bs-theme="dark"] .btn-outline-dark:hover {
-      background-color: #111827;
-      border-color: #6b7280;
+    [data-bs-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
     }
 
     button:focus-visible,
@@ -365,7 +322,6 @@
   <script>
     function setTheme(theme) {
       document.documentElement.setAttribute('data-bs-theme', theme);
-      document.documentElement.classList.toggle('dark', theme === 'dark');
       localStorage.setItem('theme', theme);
 
       const btnLight = document.getElementById('btnLight');
