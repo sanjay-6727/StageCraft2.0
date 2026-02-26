@@ -91,7 +91,25 @@
                             class="form-control form-control-sm me-2 border-0 fw-bold bg-light"
                             placeholder="e.g. index.js" disabled>
                     </div>
-                    <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center">
+                            <span class="small text-muted me-2">Branch</span>
+                            <select id="branchSelect" class="form-select form-select-sm">
+                                <!-- options populated via JS -->
+                            </select>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" type="button"
+                            onclick="createBranch()">
+                            <span class="material-symbols-outlined fs-6 align-middle me-1">fork_right</span> New Branch
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm rounded-pill" type="button" id="mergeBtn"
+                            onclick="showMergeModal()" title="Only the workspace creator or an Admin can merge">
+                            <span class="material-symbols-outlined fs-6 align-middle me-1">merge</span> Merge
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm rounded-pill" type="button" id="deleteBranchBtn"
+                            onclick="deleteCurrentBranch()" title="Delete current branch">
+                            <span class="material-symbols-outlined fs-6 align-middle me-1">delete</span> Delete Branch
+                        </button>
                         <button class="btn btn-success btn-sm px-4 fw-bold rounded-pill shadow-sm" id="pushBtn"
                             onclick="pushChanges()" disabled>
                             <span class="material-symbols-outlined fs-6 align-middle me-1">cloud_upload</span> Push Code
@@ -110,11 +128,51 @@
     </div>
 </div>
 
+<!-- Merge Modal -->
+<div class="modal fade" id="mergeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold">Merge Branches</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Source Branch (Compare)</label>
+                    <select id="mergeSourceSelect" class="form-select">
+                        <!-- populated via JS -->
+                    </select>
+                </div>
+                <div class="text-center mb-3">
+                    <span class="material-symbols-outlined text-muted">arrow_downward</span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Target Branch (Base)</label>
+                    <select id="mergeTargetSelect" class="form-select">
+                        <option value="main">main</option>
+                    </select>
+                </div>
+                <div class="alert alert-info small">
+                    Merging will sync all files from the source branch into the target branch.
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3"
+                    data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold"
+                    onclick="performMerge()">Merge Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    const workItemId = {{ work_item.id }};
+    const workItemId = Number("{{ work_item.id }}");
     let editor = null;
     let filesData = [];
     let currentActiveFile = null;
+    let currentBranch = "main";
+    let branches = ["main"];
 
     document.addEventListener("DOMContentLoaded", () => {
         editor = CodeMirror.fromTextArea(document.getElementById("codeEditor"), {
@@ -131,12 +189,42 @@
             }
         });
 
-        loadFiles();
+        const branchSelect = document.getElementById('branchSelect');
+        if (branchSelect) {
+            branchSelect.addEventListener('change', (e) => {
+                currentBranch = e.target.value || "main";
+                loadFiles();
+            });
+        }
+
+        loadBranches().then(loadFiles);
     });
+
+    async function loadBranches() {
+        try {
+            const res = await fetch(`/workitems/${workItemId}/branches`);
+            if (!res.ok) throw new Error("Failed to load branches.");
+            const data = await res.json();
+            branches = data.branches || ["main"];
+        } catch (err) {
+            console.error(err);
+            branches = ["main"];
+        }
+
+        const select = document.getElementById('branchSelect');
+        if (!select) return;
+
+        if (!branches.includes(currentBranch)) {
+            currentBranch = branches[0] || "main";
+        }
+
+        select.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        select.value = currentBranch;
+    }
 
     async function loadFiles() {
         try {
-            const res = await fetch(`/workitems/${workItemId}/code`);
+            const res = await fetch(`/workitems/${workItemId}/code?branch=${encodeURIComponent(currentBranch)}`);
             if (!res.ok) throw new Error("Failed to pull files.");
             filesData = await res.json();
 
@@ -145,14 +233,48 @@
                 fileTree.innerHTML = '<div class="p-3 text-center text-muted small" id="noFilesMsg">No files pushed yet. Start coding!</div>';
             } else {
                 fileTree.innerHTML = filesData.map(f => `
-                    <div class="p-2 px-3 border-bottom file-item d-flex align-items-center" onclick="openFile('${f.filename}')" data-filename="${f.filename}">
-                        <span class="material-symbols-outlined fs-5 me-2 text-primary">description</span>
-                        <span class="text-truncate small fw-medium">${f.filename}</span>
+                    <div class="p-2 px-3 border-bottom file-item d-flex align-items-center justify-content-between" data-filename="${f.filename}">
+                        <div class="d-flex align-items-center text-truncate" onclick="openFile('${f.filename}')">
+                            <span class="material-symbols-outlined fs-5 me-2 text-primary">description</span>
+                            <span class="text-truncate small fw-medium">${f.filename}</span>
+                        </div>
+                        <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteFile('${f.filename}')">
+                            <span class="material-symbols-outlined fs-6">delete</span>
+                        </button>
                     </div>
                 `).join('');
             }
         } catch (err) {
             console.error(err);
+        }
+    }
+
+    async function createBranch() {
+        const name = prompt("Enter new branch name (e.g. feature-x):");
+        if (!name) return;
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        if (branches.includes(trimmed)) {
+            alert("Branch already exists.");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/workitems/${workItemId}/branches`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: trimmed, from_branch: currentBranch })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to create branch.");
+            }
+
+            currentBranch = trimmed;
+            await loadBranches();
+            await loadFiles();
+        } catch (err) {
+            alert(err.message);
         }
     }
 
@@ -223,10 +345,13 @@
             const res = await fetch(`/workitems/${workItemId}/code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filename, content })
+                body: JSON.stringify({ filename, content, branch: currentBranch })
             });
 
-            if (!res.ok) throw new Error("Failed to push code.");
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to push code.");
+            }
 
             document.getElementById('saveStatus').innerHTML = '<span class="text-success fw-bold">Pushed successfully!</span>';
             setTimeout(() => document.getElementById('saveStatus').innerHTML = 'Synced', 3000);
@@ -242,6 +367,102 @@
         } finally {
             pushBtn.disabled = false;
             pushBtn.innerHTML = '<span class="material-symbols-outlined fs-6 align-middle me-1">cloud_upload</span> Push Code';
+        }
+    }
+
+    function showMergeModal() {
+        const sourceSelect = document.getElementById('mergeSourceSelect');
+        const targetSelect = document.getElementById('mergeTargetSelect');
+
+        sourceSelect.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        targetSelect.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
+
+        // Default: source = current branch, target = main (if not current branch)
+        sourceSelect.value = currentBranch;
+        if (currentBranch !== "main") {
+            targetSelect.value = "main";
+        } else {
+            targetSelect.value = branches.find(b => b !== "main") || "main";
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('mergeModal'));
+        modal.show();
+    }
+
+    async function performMerge() {
+        const source = document.getElementById('mergeSourceSelect').value;
+        const target = document.getElementById('mergeTargetSelect').value;
+
+        if (source === target) {
+            alert("Source and target branches must be different.");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/workitems/${workItemId}/merge`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ source_branch: source, target_branch: target })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Merge failed.");
+
+            alert(data.message);
+            bootstrap.Modal.getInstance(document.getElementById('mergeModal')).hide();
+            await loadFiles();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    async function deleteFile(filename) {
+        if (!confirm(`Are you sure you want to delete '${filename}' from branch '${currentBranch}'?`)) return;
+
+        try {
+            const res = await fetch(`/workitems/${workItemId}/code/delete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename, branch: currentBranch })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to delete file.");
+
+            if (currentActiveFile && currentActiveFile.filename === filename) {
+                currentActiveFile = null;
+                editor.setValue("");
+                document.getElementById('currentFileName').value = "";
+                document.getElementById('pushBtn').disabled = true;
+            }
+
+            await loadFiles();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    async function deleteCurrentBranch() {
+        if (currentBranch === "main") {
+            alert("The main branch cannot be deleted.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete the entire branch '${currentBranch}' and all its files?`)) return;
+
+        try {
+            const res = await fetch(`/workitems/${workItemId}/branches/delete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: currentBranch })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to delete branch.");
+
+            alert(data.message);
+            currentBranch = "main";
+            await loadBranches();
+            await loadFiles();
+        } catch (err) {
+            alert(err.message);
         }
     }
 </script>

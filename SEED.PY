@@ -11,6 +11,16 @@ def seed():
         
         from models import Project, User, Approval, CodeFile, Comment
         
+        # Create some users
+        admin = User(username="admin", role="Admin")
+        admin.set_password("pass")
+        user1 = User(username="alice", role="Developer")
+        user1.set_password("pass")
+        user2 = User(username="bob", role="Developer")
+        user2.set_password("pass")
+        db.session.add_all([admin, user1, user2])
+        db.session.commit()
+
         # Seed a default project so project_id=1 doesn't fail
         db.session.add(Project(name="Global Stagecraft Init", description="Internal enterprise rollout"))
         db.session.commit()
@@ -20,10 +30,12 @@ def seed():
         # ─────────────────────────────────────────
         w1 = WorkItem(title="User Authentication System",
                       description="Implement login, logout, and JWT-based auth.",
-                      priority="Critical", assignee="Alice Hacker")
+                      priority="Critical", assignee="Alice Hacker",
+                      owner_id=user1.id)
         w2 = WorkItem(title="Payment Gateway Integration",
                       description="Integrate Stripe API for transactions.",
-                      priority="High", assignee="Bob Security")
+                      priority="High", assignee="Bob Security",
+                      owner_id=user2.id)
 
         db.session.add_all([w1, w2])
         db.session.commit()

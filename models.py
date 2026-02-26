@@ -93,12 +93,11 @@ class WorkItem(db.Model):
     )
     last_transition_at = db.Column(db.DateTime, nullable=True)
 
-    # Future ownership / responsibility (uncomment when User model exists)
-    # created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    # current_owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships
     project = db.relationship('Project', back_populates='work_items')
+    owner = db.relationship('User', foreign_keys=[owner_id])
 
     artifacts = db.relationship(
         'Artifact',
@@ -202,6 +201,7 @@ class CodeFile(db.Model):
         index=True
     )
     filename = db.Column(db.String(255), nullable=False)
+    branch = db.Column(db.String(100), nullable=False, default="main")
     content = db.Column(db.Text, nullable=False, default="")
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -211,8 +211,42 @@ class CodeFile(db.Model):
         return {
             "id": self.id,
             "filename": self.filename,
+            "branch": self.branch,
             "content": self.content,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class WorkspaceBranch(db.Model):
+    """
+    Explicit branch metadata per work item so that branches can exist
+    even before any files are pushed.
+    """
+
+    __tablename__ = 'workspace_branches'
+
+    id = db.Column(db.Integer, primary_key=True)
+    work_item_id = db.Column(
+        db.Integer,
+        db.ForeignKey('work_items.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    is_merged = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint('work_item_id', 'name', name='uq_workspace_branch_per_item'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "work_item_id": self.work_item_id,
+            "name": self.name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
